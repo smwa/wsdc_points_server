@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}{{ event.name }} &mdash; WSDC Points{% endblock %}
+
+{% block content %}
+<h1>{{ event.name }}</h1>
+{% if event.location %}<p class="updated">{{ event.location }}</p>{% endif %}
+{% if event.url %}
+<p><a target="_blank" rel="noopener" href="{{ event.url }}">{{ event.url }}</a></p>
+{% endif %}
+
+{% for occ in tiered_occurrences %}
+<section class="event-occurrence">
+  <h3>{{ occ.date.strftime('%B %Y') }}
+    <small><a href="/event-competitors/{{ occ.id }}">{{ occ.competitors }} competitors</a></small>
+  </h3>
+  <table class="data-table">
+    <thead>
+      <tr><th>Division</th><th>Leader</th><th>Follower</th></tr>
+    </thead>
+    <tbody>
+      {% for row in occ.rows %}
+      <tr>
+        <td>{{ row.division }}</td>
+        <td>{{ row.leader or '—' }}</td>
+        <td>{{ row.follower or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endfor %}
+
+{% if untiered_dates %}
+<ul class="dates-held">
+  {% for occ in untiered_dates %}
+  <li>
+    {{ occ.date.strftime('%B %Y') }}
+    <small><a href="/event-competitors/{{ occ.id }}">{{ occ.competitors }} competitors</a></small>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if not tiered_occurrences and not untiered_dates %}
+<p>No occurrences yet.</p>
+{% endif %}
+
+{% if chart %}
+<h2>Competitors over time</h2>
+{% include "_line_chart.html" %}
+{% endif %}
+{% endblock %}

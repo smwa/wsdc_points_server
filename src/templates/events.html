@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Events &mdash; WSDC Points{% endblock %}
+
+{% block head %}
+<script defer src="/static/js/list-search.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Events</h1>
+
+{% if events %}
+<div class="list-controls">
+  <input type="search" id="list-search" placeholder="Search events" autocomplete="off">
+</div>
+
+<ul id="item-list" class="card-list">
+  {% for event in events %}
+  <li class="card" data-search="{{ (event.name ~ ' ' ~ (event.location or '')) | lower }}">
+    <a href="/event/{{ event.id }}">{{ event.name }}</a>
+    {% if event.location %}<span class="card-meta">{{ event.location }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No events yet.</p>
+{% endif %}
+{% endblock %}

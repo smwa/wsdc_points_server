@@ -1,0 +1,14 @@
+<div class="chart">
+  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="line-chart" role="img"
+       aria-label="{{ chart_label }}">
+    {% for t in chart.yticks %}
+    <line class="grid" x1="{{ chart.pad_l }}" y1="{{ t.y }}" x2="{{ chart.width }}" y2="{{ t.y }}" />
+    <text class="axis" x="{{ chart.pad_l - 6 }}" y="{{ t.y }}" text-anchor="end" dominant-baseline="middle">{{ t.label }}</text>
+    {% endfor %}
+    {% for t in chart.xticks %}
+    <text class="axis" x="{{ t.x }}" y="{{ chart.height - 8 }}" text-anchor="middle">{{ t.label }}</text>
+    {% endfor %}
+    {% if chart.area %}<polygon class="area" points="{{ chart.area }}" />{% endif %}
+    <polyline class="line" points="{{ chart.points }}" />
+  </svg>
+</div>

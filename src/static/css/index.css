@@ -1,0 +1,181 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+.container {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+a {
+  color: inherit;
+}
+
+.inline {
+  display: inline;
+}
+
+.home-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.updated {
+  color: gray;
+}
+
+.navbar {
+  border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+}
+
+.nav-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.nav-brand {
+  font-weight: bold;
+}
+
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Searchable card lists (dancers, events, upcoming events) */
+.list-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+#list-search {
+  flex: 1 1 12rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card {
+  padding: 0.6rem 0;
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+}
+
+.card h3 {
+  margin: 0 0 0.25rem;
+}
+
+.card-meta,
+.distance {
+  color: gray;
+}
+
+/* Data tables (event tiers, dancer points & placements) */
+.data-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0 1.5rem;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+}
+
+.data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dancer page heading + star (favorite) button */
+.dancer-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dancer-heading h1 {
+  margin: 0;
+}
+
+.star-form {
+  display: inline;
+  margin: 0;
+}
+
+.star-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: gray;
+}
+
+.star-button.is-starred {
+  color: #f5b301;
+}
+
+/* Recurring-event dates held without tier data */
+.dates-held {
+  list-style: none;
+  padding: 0;
+  columns: 2;
+}
+
+/* Small linked count in an occurrence header */
+h3 small {
+  font-weight: normal;
+  font-size: 0.8rem;
+  color: gray;
+}
+
+/* Server-rendered SVG line chart (dancers over time) */
+.chart {
+  overflow-x: auto;
+}
+
+.line-chart {
+  width: 100%;
+  height: auto;
+}
+
+.line-chart .grid {
+  stroke: rgba(128, 128, 128, 0.3);
+  stroke-width: 1;
+}
+
+.line-chart .axis {
+  fill: gray;
+  font-size: 11px;
+}
+
+.line-chart .line {
+  fill: none;
+  stroke: #2e7d32;
+  stroke-width: 2;
+}
+
+.line-chart .area {
+  fill: rgba(46, 125, 50, 0.15);
+  stroke: none;
+}

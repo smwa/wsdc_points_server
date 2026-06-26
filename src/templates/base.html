@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}WSDC Points{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="WSDC Points lets you look up West Coast Swing competition points for dancers and browse past and upcoming WSDC-sanctioned events.">
+  <meta name="theme-color" content="#062C06">
+  <link rel="icon" type="image/png" href="/static/icons/favicon.png">
+  <link rel="apple-touch-icon" href="/static/icons/favicon.png">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="stylesheet" href="/static/css/index.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container nav-inner">
+      <a class="nav-brand" href="/">WSDC Points</a>
+      <ul class="nav-links">
+        <li><a href="/dancers">Dancers</a></li>
+        <li><a href="/events">Events</a></li>
+        <li><a href="/upcoming-events">Upcoming Events</a></li>
+        <li><a href="/dancers-over-time">Dancers Over Time</a></li>
+        <li><a href="/about">About</a></li>
+      </ul>
+    </div>
+  </nav>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

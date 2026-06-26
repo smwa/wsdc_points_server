@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block title %}Dancers Over Time &mdash; WSDC Points{% endblock %}
+
+{% block content %}
+<h1>Dancers Over Time</h1>
+<p class="updated">Number of dancers with at least one point, by month &mdash; {{ "{:,}".format(latest) }} today.</p>
+
+{% include "_line_chart.html" %}
+{% endblock %}

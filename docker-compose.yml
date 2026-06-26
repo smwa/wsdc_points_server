@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wsdc
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Migrations run in filename order on first init of an empty data dir.
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wsdc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/wsdc
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Data importer. Fetches each dancer from WSDC and upserts it in its own
+  # transaction, scanning ids upward and looping back to 1 forever so every
+  # dancer is refreshed over and over. Tune IMPORTER_REQUEST_DELAY_SECONDS to
+  # run a slower, WSDC-friendly loop.
+  importer:
+    build: .
+    command: ["python", "-m", "src.importer"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/wsdc
+      # Seconds between dancer fetches (raise to slow the loop down).
+      IMPORTER_REQUEST_DELAY_SECONDS: "30.0"
+      # Needed to geocode new event locations; results are cached in geocode_cache.
+      OPEN_WEATHER_MAP_API_KEY: "${OPEN_WEATHER_MAP_API_KEY:-}"
+      # Offline mode reads the legacy raw files mounted at /data and runs one
+      # pass (no WSDC calls). Set IMPORTER_OFFLINE=1 in .env to enable.
+      IMPORTER_OFFLINE: "${IMPORTER_OFFLINE:-false}"
+      RAW_RESPONSES_PATH: /data/raw_responses.json.gz
+      RAW_EVENTS_PATH: /data/raw_events.html.gz
+    volumes:
+      - ../wsdc_points/points:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

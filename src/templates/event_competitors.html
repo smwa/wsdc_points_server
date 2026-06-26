@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}{{ occ.event_name }} {{ occ.date.strftime('%B %Y') }} &mdash; Competitors{% endblock %}
+
+{% block content %}
+<h1>{{ occ.event_name }}</h1>
+<p class="updated">
+  {{ occ.date.strftime('%B %Y') }} &middot; {{ total }} competitors &middot;
+  <a href="/event/{{ occ.event_id }}">back to event</a>
+</p>
+
+{% for section in sections %}
+<section class="event-occurrence">
+  <h3>{{ section.division }} &middot; {{ section.role }}</h3>
+  <table class="data-table">
+    <thead>
+      <tr><th class="num">Place</th><th>Dancer</th><th class="num">Points</th></tr>
+    </thead>
+    <tbody>
+      {% for c in section.competitors %}
+      <tr>
+        <td class="num">{{ {'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','F':'Final'}.get(c.result, c.result) }}</td>
+        <td>
+          <a href="/dancer/{{ c.dancer_id }}">{{ c.dancer_name }}</a>
+          <span class="card-meta">#{{ c.dancer_id }}</span>
+        </td>
+        <td class="num">{{ c.points }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<p>No competitor data for this occurrence.</p>
+{% endfor %}
+{% endblock %}

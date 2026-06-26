@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Dancers &mdash; WSDC Points{% endblock %}
+
+{% block head %}
+<script defer src="/static/js/dancers-list.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Dancers</h1>
+
+{% if dancers_data %}
+<div class="list-controls">
+  <input type="search" id="list-search" placeholder="Search dancers" autocomplete="off">
+</div>
+<p id="list-status" class="updated"></p>
+<ul id="item-list" class="card-list"></ul>
+<div id="list-sentinel"></div>
+<noscript><p>Enable JavaScript to browse and search the dancer list.</p></noscript>
+<script type="application/json" id="dancers-data">{{ dancers_data | tojson }}</script>
+{% else %}
+<p>No dancers yet.</p>
+{% endif %}
+{% endblock %}

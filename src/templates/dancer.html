@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dancer.first_name }} {{ dancer.last_name }} &mdash; WSDC Points{% endblock %}
+
+{% block content %}
+<div class="dancer-heading">
+  <h1>{{ dancer.first_name }} {{ dancer.last_name }}</h1>
+  {% if is_favorite %}
+  <form method="post" action="/favorites/{{ dancer.id }}/delete" class="star-form">
+    <button type="submit" class="star-button is-starred" title="Unstar" aria-label="Unstar this dancer">&#9733;</button>
+  </form>
+  {% else %}
+  <form method="post" action="/favorites/{{ dancer.id }}" class="star-form">
+    <button type="submit" class="star-button" title="Star" aria-label="Star this dancer">&#9734;</button>
+  </form>
+  {% endif %}
+</div>
+<p class="updated">WSDC #{{ dancer.id }}{% if dancer.primary_role %} &middot; {{ dancer.primary_role }}{% endif %}{% if dancer.is_pro %} &middot; Pro{% endif %}</p>
+
+<h2>Can Compete</h2>
+<table class="data-table">
+  <thead>
+    <tr><th>Role</th><th>Eligible divisions</th></tr>
+  </thead>
+  <tbody>
+    {% for row in can_compete %}
+    <tr>
+      <td>{{ row.role }}</td>
+      <td>{{ row.divisions | join(', ') if row.divisions else '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Points</h2>
+{% if point_rows %}
+<table class="data-table">
+  <thead>
+    <tr><th>Division</th><th class="num">Leader</th><th class="num">Follower</th></tr>
+  </thead>
+  <tbody>
+    {% for row in point_rows %}
+    <tr>
+      <td>{{ row.division }}</td>
+      <td class="num">{{ row.leader if row.leader is not none else '—' }}</td>
+      <td class="num">{{ row.follower if row.follower is not none else '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No points yet.</p>
+{% endif %}
+
+<h2>Placements</h2>
+{% if placements %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Date</th><th>Event</th><th>Division</th><th>Role</th>
+      <th class="num">Place</th><th class="num">Points</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in placements %}
+    <tr>
+      <td>{{ p.date.strftime('%b %Y') }}</td>
+      <td><a href="/event/{{ p.event_id }}">{{ p.event_name }}</a></td>
+      <td>{{ p.division }}</td>
+      <td>{{ p.role }}</td>
+      <td class="num">{{ {'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','F':'Final'}.get(p.result, p.result) }}</td>
+      <td class="num">{{ p.points }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No placements yet.</p>
+{% endif %}
+
+{% if chart %}
+<h2>Points Over Time</h2>
+{% include "_line_chart.html" %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>WSDC Points</h1>
+
+{% if last_updated %}
+<p class="updated">Updated {{ last_updated.strftime('%B %d, %Y') }}</p>
+{% else %}
+<p class="updated">Not yet updated</p>
+{% endif %}
+
+<nav class="home-links">
+  <a href="/dancers">{{ dancers_count }} Dancers</a>
+  <a href="/events">{{ events_count }} Events</a>
+  <a href="/about">About Us</a>
+</nav>
+
+{% if favorites %}
+<section class="favorites">
+  <h2>Starred Dancers</h2>
+  <table class="data-table">
+    <thead>
+      <tr><th>Dancer</th><th>Last placed</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for dancer in favorites %}
+      <tr>
+        <td><a href="/dancer/{{ dancer.id }}">{{ dancer.name }}</a></td>
+        <td>{% if dancer.last_placed %}{{ dancer.last_placed.strftime('%B %Y') }}{% else %}&mdash;{% endif %}</td>
+        <td class="num">
+          <form method="post" action="/favorites/{{ dancer.id }}/delete" class="star-form">
+            <button type="submit" class="star-button is-starred" title="Unstar" aria-label="Unstar {{ dancer.name }}">&#9733;</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if not is_app %}
+<p>
+  <a target="_blank" rel="noopener"
+     href="https://play.google.com/store/apps/details?id=dev.mechstack.wsdc.twa">
+    <img alt="Get it on Google Play"
+         src="/static/icons/getItOnGooglePlay.svg" width="270" height="80">
+  </a>
+</p>
+{% endif %}
+
+<p>
+  <a target="_blank" rel="noopener" href="https://app.swingdancer.net/">
+    Swingdancer Website - An alternative to the Swingdancer app</a>
+</p>
+<p>
+  <a target="_blank" rel="noopener" href="https://eepro.com/results/{{ current_year }}/">
+    EEPro - Competition Results</a>
+</p>
+{% endblock %}

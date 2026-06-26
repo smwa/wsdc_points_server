@@ -1,0 +1,27 @@
+{
+  "short_name": "WSDC Points",
+  "name": "West Coast Swing Dance Points",
+  "icons": [
+    {
+      "src": "/static/icons/themed-mask-icon.png",
+      "sizes": "192x192 256x256 512x512",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/icons/apple-mask-icon.svg",
+      "sizes": "192x192 256x256 512x512",
+      "purpose": "monochrome"
+    },
+    {
+      "src": "/static/icons/favicon.png",
+      "type": "image/png",
+      "sizes": "48x48 96x96 128x128 180x180 192x192 256x256 512x512 1024x1024"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1C1C1C",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#062C06",
+  "description": "WSDC Points lets you lookup various information about dancers and events that participate within WSDC. This includes how many points a dancer has and which competitions they earned those points. You can also learn which events have happened in the past and what years they were held."
+}
