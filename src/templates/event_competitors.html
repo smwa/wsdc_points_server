@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block body_class %}bg-event{% endblock %}
+
 {% block title %}{{ occ.event_name }} {{ occ.date.strftime('%B %Y') }} &mdash; Competitors{% endblock %}
 
 {% block content %}

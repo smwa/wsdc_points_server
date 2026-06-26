@@ -1,18 +1,19 @@
 {% extends "base.html" %}
 
+{% block body_class %}bg-home{% endblock %}
+
 {% block content %}
 <h1>WSDC Points</h1>
-
 {% if last_updated %}
-<p class="updated">Updated {{ last_updated.strftime('%B %d, %Y') }}</p>
+<p class="updated">West Coast Swing competition points &middot; updated {{ last_updated.strftime('%B %d, %Y') }}</p>
 {% else %}
-<p class="updated">Not yet updated</p>
+<p class="updated">West Coast Swing competition points</p>
 {% endif %}
 
 <nav class="home-links">
-  <a href="/dancers">{{ dancers_count }} Dancers</a>
-  <a href="/events">{{ events_count }} Events</a>
-  <a href="/about">About Us</a>
+  <a href="/dancers">{{ "{:,}".format(dancers_count) }} Dancers</a>
+  <a href="/events">{{ "{:,}".format(events_count) }} Events</a>
+  <a href="/upcoming-events">Upcoming Events</a>
 </nav>
 
 {% if favorites %}

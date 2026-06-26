@@ -37,7 +37,8 @@ sandbox, so expect to debug runtime/SQL issues on the first real run):
 - **Data importer** (`src/importer/`): fetches each dancer from WSDC and upserts
   it in its own transaction, looping forever. See *Data importer* below.
 - Container/deploy: `Dockerfile`, `docker-compose.yml` (db + app + importer),
-  `.dockerignore`.
+  `.dockerignore`, and a GitHub Actions workflow that builds the image and
+  pushes it to GHCR (`.github/workflows/docker-publish.yml`).
 
 Not built yet:
 
@@ -73,6 +74,8 @@ server/
 ├── docker-compose.yml        # db + app + importer
 ├── psql.sh                   # interactive psql into the compose `db` service
 ├── .dockerignore
+├── .github/workflows/
+│   └── docker-publish.yml    # build + push image to ghcr.io on push/tag
 ├── database/                 # database changes
 │   ├── migrate.sh            # applies migrations/*.sql in order
 │   ├── cleanup_stale_users.sql  # prunes users not seen in > 1 year
@@ -106,7 +109,8 @@ server/
     │   └── ...
     └── static/
         ├── manifest.webmanifest          # PWA manifest (ported from legacy)
-        ├── css/index.css
+        ├── css/index.css                 # immersive dark theme (tokens, per-page bg)
+        ├── img/                          # dance photos (per-page backgrounds, hero)
         ├── js/
         │   ├── list-search.js            # tokenized, debounced search over #item-list (events, upcoming)
         │   ├── dancers-list.js           # /dancers: embedded JSON, chunked render + search
@@ -269,6 +273,15 @@ template hides the "Get it on Google Play" button when `is_app` is set — pass
     `GZipMiddleware` keeps the ~700 KB payload ~270 KB on the wire.
 
   Templates needing extra `<head>` tags use the `{% block head %}` in `base.html`.
+- **Theme.** `css/index.css` is an immersive dark theme: CSS-variable tokens
+  (`--brand` green, `--panel`, `--text`, etc.), a frosted translucent content
+  panel over a full-bleed per-page dance photo, sticky blurred navbar with an
+  active-link state, and zebra/hover tables. Each page sets its background via
+  `{% block body_class %}bg-<name>{% endblock %}`; the `.bg-*` classes each map
+  to a distinct photo in `static/img/` (only `/event` and its
+  `/event-competitors` sub-page share one). New pages should set a `body_class`
+  (add a `.bg-*` rule with a photo) and reuse the `.card`/`.data-table`/`.chart`
+  classes.
 - **Mutations use the PRG pattern.** HTML form POST → `RedirectResponse(...,
   status_code=303)` back to `Referer`. HTML forms support only GET/POST, so
   deletes are modeled as `POST /.../delete`, not HTTP DELETE.

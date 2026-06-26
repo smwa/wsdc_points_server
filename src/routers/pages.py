@@ -274,9 +274,10 @@ async def event(event_id: int, request: Request):
             )
 
     # Competitors-per-occurrence over time (chronological, true date spacing).
+    # Skipped for events held only once — a single point isn't a useful chart.
     occ_asc = sorted(occurrences, key=lambda o: o["date"])
     chart = None
-    if occ_asc:
+    if len(occ_asc) > 1:
         chart = charts.line_chart(
             [(o["date"], competitors.get(o["id"], 0)) for o in occ_asc]
         )
