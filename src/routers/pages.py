@@ -2,6 +2,7 @@ import re
 import uuid
 from collections import OrderedDict, defaultdict
 from datetime import date, datetime, timezone
+from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
@@ -519,3 +520,34 @@ async def geocode_fixups_sql(request: Request):
         media_type="application/sql",
         headers={"Content-Disposition": 'attachment; filename="geocode_fixups.sql"'},
     )
+
+
+@router.get("/robots.txt")
+async def robots(request: Request):
+    base = str(request.base_url).rstrip("/")
+    body = f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n"
+    return Response(body, media_type="text/plain")
+
+
+@router.get("/sitemap.xml")
+async def sitemap(request: Request):
+    """Sitemap of the top-level pages plus every event and dancer."""
+    base = str(request.base_url).rstrip("/")
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        event_ids = await conn.fetch("SELECT id FROM events ORDER BY id")
+        dancer_ids = await conn.fetch("SELECT id FROM dancers ORDER BY id")
+
+    locs = [base + p for p in (
+        "/", "/about", "/dancers", "/events", "/upcoming-events", "/dancers-over-time"
+    )]
+    locs += [f"{base}/event/{r['id']}" for r in event_ids]
+    locs += [f"{base}/dancer/{r['id']}" for r in dancer_ids]
+
+    urls = "".join(f"<url><loc>{escape(u)}</loc></url>" for u in locs)
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"{urls}</urlset>\n"
+    )
+    return Response(xml, media_type="application/xml")

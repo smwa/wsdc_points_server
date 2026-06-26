@@ -39,6 +39,9 @@ sandbox, so expect to debug runtime/SQL issues on the first real run):
 - Container/deploy: `Dockerfile`, `docker-compose.yml` (db + app + importer),
   `.dockerignore`, and a GitHub Actions workflow that builds the image and
   pushes it to GHCR (`.github/workflows/docker-publish.yml`).
+- Hardening & SEO: themed HTML error pages (404/500), security headers + CSP +
+  `/static` cache-control (in `main.py`), Open Graph/Twitter meta, `/robots.txt`,
+  and `/sitemap.xml` (top-level pages + every event and dancer). `README.md`.
 
 Not built yet:
 
@@ -68,6 +71,7 @@ fetching.
 ```
 server/
 ├── AGENTS.md                 # this file
+├── README.md                 # short intro / quickstart
 ├── requirements.txt
 ├── .env.example              # copy to .env
 ├── Dockerfile                # python:3.13-slim image (runs uvicorn / the importer)
@@ -291,7 +295,14 @@ template hides the "Get it on Google Play" button when `is_app` is set — pass
 - **Date display** uses `strftime('%B %d, %Y')` (zero-padded, no ordinal). The
   legacy Jekyll site rendered ordinals ("5th"); add a Jinja filter to match.
 - **Config** is env / `.env` via pydantic-settings. Set `COOKIE_SECURE=true` in
-  production (HTTPS) so the session cookie is marked `Secure`.
+  production (HTTPS) so the session cookie is marked `Secure` — that flag also
+  switches on the `Strict-Transport-Security` header.
+- **Hardening.** `main.py` adds a middleware setting `Content-Security-Policy`
+  (same-origin + `connect-src https://get.geojs.io` for the distance sort),
+  `X-Content-Type-Options`, `Referrer-Policy`, and `Cache-Control` for `/static`
+  (30 d for images, 1 h for css/js). Unhandled and HTTP errors render the themed
+  `error.html` via exception handlers — keep new templates working without extra
+  CSP allowances (no inline scripts/styles).
 - **Run from `server/`** so `src` imports as a package and `.env` loads from CWD.
 - **The home page does not yet match the legacy theme** (background images, nav
   arrows, ordinal date). Porting `assets/css/index.css` + images is a separate task.
