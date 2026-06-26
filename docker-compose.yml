@@ -9,8 +9,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Migrations run in filename order on first init of an empty data dir.
-      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    # Migrations are applied by the app/importer on startup (src/migrate.py),
+    # from the SQL files baked into the image — no initdb mount needed.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d wsdc"]
       interval: 5s

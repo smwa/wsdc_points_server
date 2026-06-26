@@ -21,6 +21,7 @@ import sys
 
 import asyncpg
 
+from .. import migrate
 from ..config import settings
 from . import run, source
 from .transform import transform_dancer
@@ -109,6 +110,8 @@ async def run_pass(pool, resolve_division, resolve_role) -> None:
 async def main(once: bool) -> None:
     # Offline mode reads a static file, so one pass is all there is to do.
     once = once or settings.importer_offline
+    if settings.auto_migrate:
+        await migrate.ensure_migrated()
     pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=3)
     try:
         async with pool.acquire() as conn:

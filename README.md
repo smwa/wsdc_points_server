@@ -18,9 +18,10 @@ cp .env.example .env          # add OPEN_WEATHER_MAP_API_KEY for event geocoding
 docker compose up --build
 ```
 
-This starts PostgreSQL (migrations apply automatically on first init), the app on
-<http://localhost:8000>, and the data importer. Credentials are
-`postgres:postgres` / db `wsdc` (dev only).
+This starts PostgreSQL, the app on <http://localhost:8000>, and the data
+importer. The app/importer apply migrations on startup from the SQL baked into
+the image (`python -m src.migrate`), so no source or initdb mount is needed on
+the server. Credentials are `postgres:postgres` / db `wsdc` (dev only).
 
 To load data without hitting WSDC, point the importer at the legacy cached files
 and run a single offline pass (set `IMPORTER_OFFLINE=true` in `.env`):

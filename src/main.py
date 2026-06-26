@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import settings
 from .db import create_pool
+from .migrate import ensure_migrated
 from .routers import favorites, health, pages
 from .session import register_session_middleware
 from .templates import templates
@@ -35,7 +36,9 @@ CONTENT_SECURITY_POLICY = (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Open the database pool on startup, close it on shutdown."""
+    """Apply migrations, open the database pool on startup, close it on shutdown."""
+    if settings.auto_migrate:
+        await ensure_migrated()
     app.state.pool = await create_pool()
     try:
         yield

@@ -93,6 +93,7 @@ server/
 └── src/                      # application code (a Python package)
     ├── config.py             # Settings (DATABASE_URL, cookie, importer knobs)
     ├── db.py                 # asyncpg pool factory
+    ├── migrate.py            # applies baked-in migrations (schema_migrations table)
     ├── charts.py             # SVG line-chart helper: line_chart([(date, value)…])
     │                         #   true date-spaced x, first/last labels, nice y ticks
     ├── divisions.py          # "can compete" eligibility logic (ported from fetch.py)
@@ -164,14 +165,19 @@ Division ids in the seed match the **WSDC API** division objects (note: these
 differ from the legacy `points/fetch.py` `DIVISIONS_MAP` ids for non-skill
 divisions 9–13).
 
-Migrations are plain numbered SQL files, applied in order. They are **not
-idempotent** — run them against a fresh database.
+Migrations are plain numbered SQL files. **Applying them is the image's job**:
+the files are baked into the image (`COPY database/migrations`) and `src/migrate.py`
+applies any not yet recorded in a `schema_migrations` table, each in its own
+transaction, under a Postgres advisory lock. The app and importer call
+`ensure_migrated()` on startup (unless `AUTO_MIGRATE=false`), so a deploy needs
+**no source checkout and no initdb mount** — just the image and a database.
 
-```bash
-createdb wsdc
-export DATABASE_URL=postgresql://localhost:5432/wsdc
-./database/migrate.sh
-```
+- Run standalone: `python -m src.migrate`.
+- The individual `.sql` files aren't idempotent, but the runner is: it skips
+  already-applied files. A database created the old way (initdb mount) has the
+  schema but no tracking rows — on first run the runner detects this and
+  backfills the current files as applied instead of re-running them.
+- `database/migrate.sh` (psql, no tracking) still works for a fresh local DB.
 
 There is not yet an importer that loads dancer/event/placement data from the
 WSDC source into these tables; only reference data (roles, divisions) is seeded.
@@ -184,10 +190,10 @@ WSDC source into these tables; only reference data (roles, divisions) is seeded.
 docker compose up --build
 ```
 
-Brings up Postgres (migrations 001–004 run automatically from
-`/docker-entrypoint-initdb.d` on first init), the FastAPI app on `:8000`, and
-the importer loop. Credentials are `postgres:postgres`, db `wsdc` (dev only).
-Set `OPEN_WEATHER_MAP_API_KEY` in the environment to enable event geocoding.
+Brings up Postgres, the FastAPI app on `:8000`, and the importer loop. The app
+and importer apply migrations on startup from the SQL baked into the image (see
+*Database*). Credentials are `postgres:postgres`, db `wsdc` (dev only). Set
+`OPEN_WEATHER_MAP_API_KEY` in the environment to enable event geocoding.
 
 ### Local (without Docker)
 

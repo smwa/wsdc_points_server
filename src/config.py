@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # Set true in production (HTTPS) so the session cookie is marked Secure.
     cookie_secure: bool = False
 
+    # Apply pending migrations (baked into the image) on app/importer startup.
+    # Disable if migrations are applied out-of-band (e.g. a separate step).
+    auto_migrate: bool = True
+
     # --- Data importer ---------------------------------------------------
     # The importer holds no dancer cache: it fetches each dancer straight from
     # the WSDC API and upserts it in its own transaction, scanning ids upward
