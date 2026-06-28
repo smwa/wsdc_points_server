@@ -5,10 +5,11 @@ from collections import OrderedDict, defaultdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from email.utils import format_datetime
+from pathlib import Path
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 
 from .. import charts, divisions
 from ..session import current_user_id
@@ -646,6 +647,50 @@ async def sitemap(request: Request):
         f"{urls}</urlset>\n"
     )
     return Response(xml, media_type="application/xml")
+
+
+# Self-destroying service worker. The legacy Jekyll site registered a SW at this
+# same path (/service-worker.js, root scope) whose fetch handler re-issued every
+# navigation as `fetch(request.url)` — dropping the method and body, so a form
+# POST (e.g. starring a dancer) became a GET and hit our POST-only route as a
+# 405. It lingers in installed-app (TWA) webviews. Serving a new SW here makes
+# the webview pick it up on its next update check; on activate it unregisters
+# itself, clears the old caches, and reloads open windows. After that no SW
+# controls the page and POSTs work. This app otherwise uses no service worker.
+_KILL_SERVICE_WORKER = """\
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    try { await self.registration.unregister(); } catch (e) {}
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+    const clients = await self.clients.matchAll({ type: 'window' });
+    for (const client of clients) { client.navigate(client.url); }
+  })());
+});
+"""
+
+
+@router.get("/service-worker.js")
+async def service_worker():
+    return Response(
+        _KILL_SERVICE_WORKER,
+        media_type="text/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+# Digital Asset Links for the Android app. The TWA only runs chrome-less (no URL
+# bar / share / close UI) when this verifies the app's package + signing-key
+# fingerprint against the domain; without it the app falls back to a Custom Tab.
+# Must be served at exactly /.well-known/assetlinks.json as application/json,
+# 200, no redirect. Same content the legacy site served.
+_ASSETLINKS_PATH = Path(__file__).resolve().parent.parent / "static" / "assetlinks.json"
+
+
+@router.get("/.well-known/assetlinks.json")
+async def assetlinks():
+    return FileResponse(_ASSETLINKS_PATH, media_type="application/json")
 
 
 # Tables kept out of the public data dump: the private ones (users, favorites)

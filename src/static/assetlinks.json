@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "dev.mechstack.wsdc.twa",
+      "sha256_cert_fingerprints": [
+        "28:68:F3:7C:B5:FC:A4:52:DC:08:96:28:ED:DE:7F:E9:1B:64:C2:E6:2F:51:9F:F8:A1:CA:59:37:D6:B5:F5:0A"
+      ]
+    }
+  }
+]

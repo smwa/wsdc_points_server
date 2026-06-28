@@ -42,6 +42,17 @@ sandbox, so expect to debug runtime/SQL issues on the first real run):
 - Hardening & SEO: themed HTML error pages (404/500), security headers + CSP +
   `/static` cache-control (in `main.py`), Open Graph/Twitter meta, `/robots.txt`,
   and `/sitemap.xml` (top-level pages + every event and dancer). `README.md`.
+- `/service-worker.js` is a **self-destroying** service worker (in `pages.py`).
+  The legacy Jekyll site registered a SW at this same path whose fetch handler
+  re-issued navigations as `fetch(request.url)`, turning form POSTs (e.g. the
+  star toggle) into GETs and 405s — visible only in installed-app (TWA) webviews
+  where the old SW lingered. This one unregisters itself, clears caches, and
+  reloads on activate. The app itself registers no service worker.
+- `/.well-known/assetlinks.json` (in `pages.py`, served from
+  `src/static/assetlinks.json`) is the Digital Asset Links file for the Android
+  TWA (`dev.mechstack.wsdc.twa`). Without it the app shows a Custom Tab URL bar
+  instead of running chrome-less; the fingerprint must match the app's signing
+  key. Same content the legacy site served.
 
 Not built yet:
 
