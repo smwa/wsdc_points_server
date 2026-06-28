@@ -90,16 +90,27 @@ async def import_dancer(conn, data: DancerData) -> None:
             data.dancer_id, first, last, is_pro, primary_role_id,
         )
 
+        # Events are shared across dancers, so only let a more-recent occurrence
+        # overwrite the stored name/location — otherwise re-importing a dancer
+        # whose latest appearance is an old occurrence could revert the name to
+        # a stale one. name_as_of records the occurrence date the name came from
+        # (see migration 008); the WHERE keeps the most recently seen name.
         await conn.executemany(
             """
-            INSERT INTO events (id, name, location, url)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO events (id, name, location, url, name_as_of)
+            VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 location = EXCLUDED.location,
-                url = EXCLUDED.url
+                url = EXCLUDED.url,
+                name_as_of = EXCLUDED.name_as_of
+            WHERE EXCLUDED.name_as_of >= events.name_as_of
+               OR events.name_as_of IS NULL
             """,
-            [(eid, e["name"], e["location"], e["url"]) for eid, e in data.events.items()],
+            [
+                (eid, e["name"], e["location"], e["url"], e["_date"])
+                for eid, e in data.events.items()
+            ],
         )
 
         # Upsert occurrences and capture their ids (the no-op DO UPDATE makes

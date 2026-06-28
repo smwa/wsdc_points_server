@@ -1,11 +1,14 @@
+import json
 import re
 import uuid
 from collections import OrderedDict, defaultdict
 from datetime import date, datetime, timezone
+from decimal import Decimal
+from email.utils import format_datetime
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from .. import charts, divisions
 from ..session import current_user_id
@@ -36,6 +39,9 @@ async def index(request: Request, user_id: uuid.UUID = Depends(current_user_id))
             """,
             user_id,
         )
+        feed_token = await conn.fetchval(
+            "SELECT feed_token FROM users WHERE id = $1", user_id
+        )
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -45,6 +51,7 @@ async def index(request: Request, user_id: uuid.UUID = Depends(current_user_id))
             "last_updated": last_updated,
             "current_year": datetime.now().year,
             "favorites": favorites,
+            "feed_token": feed_token,
             "is_app": request.state.is_app,
         },
     )
@@ -479,6 +486,94 @@ async def upcoming_events_ics(request: Request):
     return Response("\r\n".join(lines) + "\r\n", media_type="text/calendar")
 
 
+_RESULT_LABELS = {"1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th", "F": "Finalist"}
+
+
+@router.get("/feed/{feed_token}.xml")
+async def favorites_feed(feed_token: str, request: Request):
+    """RSS feed of the newest placements of a user's favorited dancers.
+
+    The opaque ``feed_token`` (a per-user UUID, see migration 007) identifies
+    the user without a cookie, so an RSS reader can subscribe. Fetching the feed
+    also bumps the user's last_seen so an active subscriber isn't pruned as
+    stale even if they never open the site in a browser.
+    """
+    try:
+        token = uuid.UUID(feed_token)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Feed not found")
+
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        user_id = await conn.fetchval(
+            "UPDATE users SET last_seen = now() WHERE feed_token = $1 RETURNING id",
+            token,
+        )
+        if user_id is None:
+            raise HTTPException(status_code=404, detail="Feed not found")
+
+        items = await conn.fetch(
+            """
+            SELECT d.id AS dancer_id,
+                   d.first_name || ' ' || d.last_name AS dancer_name,
+                   e.name AS event_name, e.location,
+                   eo.date,
+                   dv.name AS division, r.name AS role,
+                   p.id AS placement_id, p.result, p.points
+            FROM favorite_dancers fd
+            JOIN dancers d ON d.id = fd.dancer_id
+            JOIN placements p ON p.dancer_id = fd.dancer_id
+            JOIN event_occurrences eo ON eo.id = p.event_occurrence_id
+            JOIN events e ON e.id = eo.event_id
+            JOIN divisions dv ON dv.id = p.division_id
+            JOIN roles r ON r.id = p.role_id
+            WHERE fd.user_id = $1
+            ORDER BY eo.date DESC, p.id DESC
+            LIMIT 50
+            """,
+            user_id,
+        )
+
+    base = str(request.base_url).rstrip("/")
+    feed_url = f"{base}/feed/{token}.xml"
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
+        "<channel>",
+        "<title>WSDC Points — Your favorite dancers</title>",
+        f"<link>{escape(base)}/</link>",
+        f'<atom:link href="{escape(feed_url)}" rel="self" type="application/rss+xml"/>',
+        "<description>Newest competition placements for the dancers you have starred.</description>",
+    ]
+    for it in items:
+        place = _RESULT_LABELS.get(it["result"], it["result"])
+        when = it["date"].strftime("%B %Y")
+        where = it["location"] or it["event_name"]
+        title = (
+            f"{it['dancer_name']} — {place}, {it['division']} {it['role']} "
+            f"at {it['event_name']}"
+        )
+        description = (
+            f"{it['dancer_name']} placed {place} in {it['division']} {it['role']} "
+            f"at {it['event_name']} ({where}) in {when}, earning {it['points']} "
+            f"point{'s' if it['points'] != 1 else ''}."
+        )
+        # First-of-the-month dates; publish at midnight UTC for that month.
+        pub = datetime(it["date"].year, it["date"].month, it["date"].day, tzinfo=timezone.utc)
+        lines += [
+            "<item>",
+            f"<title>{escape(title)}</title>",
+            f"<link>{escape(base)}/dancer/{it['dancer_id']}</link>",
+            f'<guid isPermaLink="false">wsdc-placement-{it["placement_id"]}</guid>',
+            f"<pubDate>{format_datetime(pub)}</pubDate>",
+            f"<description>{escape(description)}</description>",
+            "</item>",
+        ]
+    lines += ["</channel>", "</rss>"]
+
+    return Response("\n".join(lines) + "\n", media_type="application/rss+xml")
+
+
 def _sql_quote(text: str) -> str:
     """Quote a string as a SQL literal (single quotes doubled)."""
     return "'" + (text or "").replace("'", "''") + "'"
@@ -551,3 +646,64 @@ async def sitemap(request: Request):
         f"{urls}</urlset>\n"
     )
     return Response(xml, media_type="application/xml")
+
+
+# Tables kept out of the public data dump: the private ones (users, favorites)
+# plus operational/derived tables that aren't part of the dataset people want.
+_PRIVATE_TABLES = {
+    "users",
+    "favorite_dancers",
+    "schema_migrations",
+    "geocode_cache",
+    "event_occurrence_tiers",
+    "data_refreshes",
+}
+
+
+def _json_default(obj):
+    """JSON-encode the Postgres types asyncpg hands back that json can't."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    return str(obj)
+
+
+@router.get("/data.json")
+async def data_export(request: Request):
+    """Stream every table's rows as JSON so the whole dataset can be downloaded.
+
+    The response is a JSON object keyed by table name, each value the list of
+    that table's rows. Private tables (users, favorites) are excluded. Rows are
+    streamed straight from server-side cursors so even the large tables
+    (placements) don't have to be buffered in memory.
+    """
+    pool = request.app.state.pool
+
+    async def stream():
+        async with pool.acquire() as conn:
+            tables = await conn.fetch(
+                """
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+                ORDER BY table_name
+                """
+            )
+            names = [t["table_name"] for t in tables if t["table_name"] not in _PRIVATE_TABLES]
+
+            yield "{\n"
+            for ti, name in enumerate(names):
+                yield f'{"," if ti else ""}{json.dumps(name)}: [\n'
+                # Server-side cursor: requires a transaction, streams in chunks.
+                async with conn.transaction():
+                    first = True
+                    async for row in conn.cursor(f'SELECT * FROM "{name}"'):
+                        prefix = "" if first else ",\n"
+                        first = False
+                        yield prefix + json.dumps(dict(row), default=_json_default)
+                yield "\n]"
+            yield "\n}\n"
+
+    return StreamingResponse(stream(), media_type="application/json")

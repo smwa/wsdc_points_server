@@ -56,7 +56,7 @@
 
 <h2>Placements</h2>
 {% if placements %}
-<table class="data-table">
+<table class="data-table responsive">
   <thead>
     <tr>
       <th>Date</th><th>Event</th><th>Division</th><th>Role</th>
@@ -66,12 +66,12 @@
   <tbody>
     {% for p in placements %}
     <tr>
-      <td>{{ p.date.strftime('%b %Y') }}</td>
-      <td><a href="/event/{{ p.event_id }}">{{ p.event_name }}</a></td>
-      <td>{{ p.division }}</td>
-      <td>{{ p.role }}</td>
-      <td class="num">{{ {'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','F':'Final'}.get(p.result, p.result) }}</td>
-      <td class="num">{{ p.points }}</td>
+      <td data-label="Date">{{ p.date.strftime('%b %Y') }}</td>
+      <td data-label="Event"><a href="/event/{{ p.event_id }}">{{ p.event_name }}</a></td>
+      <td data-label="Division">{{ p.division }}</td>
+      <td data-label="Role">{{ p.role }}</td>
+      <td class="num" data-label="Place">{{ {'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','F':'Final'}.get(p.result, p.result) }}</td>
+      <td class="num" data-label="Points">{{ p.points }}</td>
     </tr>
     {% endfor %}
   </tbody>

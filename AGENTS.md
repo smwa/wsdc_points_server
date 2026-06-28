@@ -89,7 +89,9 @@ server/
 │       ├── 003_users_and_favorites.sql
 │       ├── 004_data_refreshes.sql
 │       ├── 005_geocode_cache.sql
-│       └── 006_dancer_last_imported.sql
+│       ├── 006_dancer_last_imported.sql
+│       ├── 007_user_feed_token.sql
+│       └── 008_event_name_as_of.sql
 └── src/                      # application code (a Python package)
     ├── config.py             # Settings (DATABASE_URL, cookie, importer knobs)
     ├── db.py                 # asyncpg pool factory
@@ -160,6 +162,18 @@ compose `db` service for exactly this — and re-run the importer so
 
 Migration `006` adds `dancers.last_imported_at` (+ index), which the importer
 stamps on every fetch to drive its prioritised refresh (see *Data importer*).
+
+Migration `007` adds `users.feed_token` (UUID, unique, defaulting to
+`gen_random_uuid()`) — the per-user secret that authorises the favorites RSS
+feed without a cookie (see *Sessions & favorites*). The volatile default
+backfills a distinct token for every existing user when the column is added.
+
+Migration `008` adds `events.name_as_of` (DATE), the occurrence date the stored
+event name/location came from. Events are shared across dancers, so the importer
+only overwrites the name when it sees a **more recent (or equal) occurrence**,
+keeping the most recently seen name instead of letting whichever dancer was
+imported last win (see *Per-dancer transaction*). Backfilled from each event's
+newest occurrence.
 
 Division ids in the seed match the **WSDC API** division objects (note: these
 differ from the legacy `points/fetch.py` `DIVISIONS_MAP` ids for non-skill
@@ -240,6 +254,15 @@ Both redirect (303) back to the `Referer`, or `/`. The home page lists the
 current user's starred dancers with their most recent placement month, and the
 "Starred Dancers" section is omitted entirely when they have none.
 
+**Favorites RSS feed.** `GET /feed/{feed_token}.xml` is a per-user RSS 2.0 feed
+of the newest placements (50) of that user's starred dancers, each item naming
+the division/role, place, points, event, location, and month. `feed_token` is
+the user's `users.feed_token` UUID (migration 007) — opaque enough to embed in
+a subscription URL, so no cookie is needed. The home page shows a small "RSS"
+link next to the "Starred Dancers" heading (only when they have favorites and so
+a token is in scope). Fetching the feed also bumps that user's `last_seen`, so a
+subscriber who never opens a browser isn't pruned as stale.
+
 Prune visitors who haven't returned in over a year by running
 `database/cleanup_stale_users.sql` on a schedule (cron, etc.); the cascade
 removes their favorites.
@@ -253,6 +276,19 @@ cookie and sets `request.state.is_app` on every request thereafter (a normal
 browser never sees that referer, and the TWA has its own cookie jar). The home
 template hides the "Get it on Google Play" button when `is_app` is set — pass
 `is_app` into any other template that needs it.
+
+## Public data export
+
+`GET /data.json` streams the whole dataset for anyone who wants to download it:
+a JSON object keyed by table name, each value the list of that table's rows.
+Every `public` base table is included **except** those in `_PRIVATE_TABLES`
+(`routers/pages.py`): the private `users`/`favorite_dancers`, plus the
+operational/derived `schema_migrations`, `geocode_cache`,
+`event_occurrence_tiers`, and `data_refreshes`. Rows are
+streamed straight from per-table server-side cursors (inside a transaction) via
+`StreamingResponse`, so the large tables (placements) are never fully buffered.
+`_json_default` coerces the Postgres types `json` can't (`date`/`datetime` →
+ISO, `Decimal` → float, `UUID` → str).
 
 ## Adding a page
 
@@ -291,7 +327,10 @@ template hides the "Get it on Google Play" button when `is_app` is set — pass
   to a distinct photo in `static/img/` (only `/event` and its
   `/event-competitors` sub-page share one). New pages should set a `body_class`
   (add a `.bg-*` rule with a photo) and reuse the `.card`/`.data-table`/`.chart`
-  classes.
+  classes. A wide table that would overflow a phone can add the `responsive`
+  modifier (`class="data-table responsive"`) and a `data-label="…"` on each
+  `<td>`: under `@media (max-width: 36rem)` the header is hidden and every row
+  restacks into a labelled card (used by the dancer placements table).
 - **Mutations use the PRG pattern.** HTML form POST → `RedirectResponse(...,
   status_code=303)` back to `Referer`. HTML forms support only GET/POST, so
   deletes are modeled as `POST /.../delete`, not HTTP DELETE.
@@ -358,8 +397,12 @@ this and imports the whole file.)
 
 Each dancer is written in a single `conn.transaction()`:
 
-- Upsert the `dancers` row and the `events` they reference (`ON CONFLICT DO
-  UPDATE` — events recur and are shared; latest writer wins for name/location).
+- Upsert the `dancers` row (each fetch is authoritative for that dancer, so its
+  name is always refreshed to the latest) and the `events` they reference. Event
+  name/location only update when this dancer's occurrence is at least as recent
+  as `events.name_as_of` (migration 008) — events are shared and recur, so this
+  keeps the **most recently seen** name rather than letting whichever dancer was
+  imported last win.
 - Upsert `event_occurrences` (date normalized to the first of the month) and read
   back their generated ids via `... ON CONFLICT (event_id, date) DO UPDATE SET
   event_id = EXCLUDED.event_id RETURNING id` (the no-op update forces conflicting

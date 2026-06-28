@@ -36,6 +36,11 @@ docker compose run --rm importer python -m src.importer --once
 `/event-competitors/{occurrence_id}` · `/upcoming-events` (+ `/wsdc_events.ics`) ·
 `/dancers-over-time` · `/about`. `/health` is the JSON health check.
 
+Feeds & data: `/feed/{feed_token}.xml` is a per-user RSS feed of your starred
+dancers' newest points (the home page links it next to "Starred Dancers"), and
+`/data.json` streams the whole dataset (the dancer/event/placement tables; the
+private and operational tables are excluded) for anyone who wants to download it.
+
 ## Data importer
 
 `python -m src.importer` fetches each dancer from WSDC and upserts it in its own

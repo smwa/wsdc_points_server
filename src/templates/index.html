@@ -18,7 +18,12 @@
 
 {% if favorites %}
 <section class="favorites">
-  <h2>Starred Dancers</h2>
+  <h2 class="favorites-heading">
+    Starred Dancers
+    {% if feed_token %}
+    <a class="feed-link" href="/feed/{{ feed_token }}.xml" title="RSS feed of your favorites' newest points">RSS</a>
+    {% endif %}
+  </h2>
   <table class="data-table">
     <thead>
       <tr><th>Dancer</th><th>Last placed</th><th></th></tr>
