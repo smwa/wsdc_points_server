@@ -102,7 +102,8 @@ server/
 │       ├── 005_geocode_cache.sql
 │       ├── 006_dancer_last_imported.sql
 │       ├── 007_user_feed_token.sql
-│       └── 008_event_name_as_of.sql
+│       ├── 008_event_name_as_of.sql
+│       └── 009_placements_natural_key.sql
 └── src/                      # application code (a Python package)
     ├── config.py             # Settings (DATABASE_URL, cookie, importer knobs)
     ├── db.py                 # asyncpg pool factory
@@ -277,10 +278,11 @@ subscriber who never opens a browser isn't pruned as stale.
 
 Each item's `<guid>` is derived from the placement's **stable natural key**
 (`dancer_id`, `event_occurrence_id`, `division_id`, `role_id`), not the
-surrogate `placements.id`. The importer deletes and reinserts a dancer's
-placements on every run (`import_dancer` in `src/importer/run.py`), so `p.id`
-(an `IDENTITY` column) changes each import; a guid keyed on it would make every
-item look brand-new to RSS readers on every import run.
+surrogate `placements.id`. The importer now upserts placements idempotently so
+`p.id` is stable (see *Per-dancer transaction*), but the guid stays keyed on the
+natural key — it's the durable identity regardless of how rows are written, and
+historically the importer reassigned `p.id` every pass, which made every item
+look brand-new to RSS readers on each run.
 
 Prune visitors who haven't returned in over a year by running
 `database/cleanup_stale_users.sql` on a schedule (cron, etc.); the cascade
@@ -438,8 +440,19 @@ Each dancer is written in a single `conn.transaction()`:
   back their generated ids via `... ON CONFLICT (event_id, date) DO UPDATE SET
   event_id = EXCLUDED.event_id RETURNING id` (the no-op update forces conflicting
   rows into `RETURNING`).
-- `DELETE FROM placements WHERE dancer_id = $1`, then reinsert just this dancer's
-  placements (West Coast Swing only).
+- Reconcile this dancer's placements (West Coast Swing only) idempotently:
+  upsert on the natural key `(dancer_id, event_occurrence_id, division_id,
+  role_id)` (migration 009), with the `DO UPDATE` guarded by `WHERE
+  placements.result IS DISTINCT FROM EXCLUDED.result OR placements.points IS
+  DISTINCT FROM EXCLUDED.points` so unchanged rows aren't rewritten, then
+  `DELETE` only the rows no longer present. This replaced an earlier
+  delete-all-then-reinsert that churned the table (dead tuples + WAL even for
+  unchanged rows) and reassigned `placements.id` every pass; ids are now stable,
+  so `id` is safe to reference but the RSS guid still keys on the natural key
+  (see *Favorites RSS feed*). Note `INSERT ... ON CONFLICT` still consumes one
+  `IDENTITY` value per incoming row even on conflict, so the id sequence keeps
+  advancing at about the same rate — a pre-existing concern, addressable by
+  moving `placements.id` to `BIGINT` if INTEGER exhaustion ever looms.
 - Upsert `event_occurrence_tiers` for this dancer's first-place finishes
   (post-2020). Tiers are owned by whoever placed first, so each winner sets the
   tier for their occurrence/division/role.

@@ -128,18 +128,45 @@ async def import_dancer(conn, data: DancerData) -> None:
         )
         occ_map = {(r["event_id"], r["date"]): r["id"] for r in occ_id_rows}
 
-        # Replace only this dancer's placements.
-        await conn.execute("DELETE FROM placements WHERE dancer_id = $1", data.dancer_id)
+        # Reconcile this dancer's placements idempotently rather than deleting
+        # and reinserting them wholesale. The old approach churned the table
+        # (dead tuples + WAL even for unchanged rows) and reassigned placements.id
+        # on every pass. Upsert on the natural key (migration 009), only writing
+        # when result/points actually differ, then delete only the placements
+        # that are no longer present.
+        rows = [
+            (data.dancer_id, occ_map[(event_id, date)], role_id, division_id, result, points)
+            for (event_id, date, role_id, division_id, result, points) in data.placements
+        ]
         await conn.executemany(
             """
             INSERT INTO placements
                 (dancer_id, event_occurrence_id, role_id, division_id, result, points)
             VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (dancer_id, event_occurrence_id, division_id, role_id)
+            DO UPDATE SET result = EXCLUDED.result, points = EXCLUDED.points
+            WHERE placements.result IS DISTINCT FROM EXCLUDED.result
+               OR placements.points IS DISTINCT FROM EXCLUDED.points
             """,
-            [
-                (data.dancer_id, occ_map[(event_id, date)], role_id, division_id, result, points)
-                for (event_id, date, role_id, division_id, result, points) in data.placements
-            ],
+            rows,
+        )
+        # Drop placements this dancer no longer has (e.g. corrected data).
+        await conn.execute(
+            """
+            DELETE FROM placements p
+            WHERE p.dancer_id = $1
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM unnest($2::int[], $3::int[], $4::int[]) AS k(occ, role, div)
+                  WHERE k.occ = p.event_occurrence_id
+                    AND k.role = p.role_id
+                    AND k.div = p.division_id
+              )
+            """,
+            data.dancer_id,
+            [r[1] for r in rows],
+            [r[2] for r in rows],
+            [r[3] for r in rows],
         )
 
         await conn.executemany(
