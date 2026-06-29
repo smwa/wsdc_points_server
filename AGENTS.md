@@ -275,6 +275,13 @@ link next to the "Starred Dancers" heading (only when they have favorites and so
 a token is in scope). Fetching the feed also bumps that user's `last_seen`, so a
 subscriber who never opens a browser isn't pruned as stale.
 
+Each item's `<guid>` is derived from the placement's **stable natural key**
+(`dancer_id`, `event_occurrence_id`, `division_id`, `role_id`), not the
+surrogate `placements.id`. The importer deletes and reinserts a dancer's
+placements on every run (`import_dancer` in `src/importer/run.py`), so `p.id`
+(an `IDENTITY` column) changes each import; a guid keyed on it would make every
+item look brand-new to RSS readers on every import run.
+
 Prune visitors who haven't returned in over a year by running
 `database/cleanup_stale_users.sql` on a schedule (cron, etc.); the cascade
 removes their favorites.

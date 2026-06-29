@@ -518,9 +518,10 @@ async def favorites_feed(feed_token: str, request: Request):
             SELECT d.id AS dancer_id,
                    d.first_name || ' ' || d.last_name AS dancer_name,
                    e.name AS event_name, e.location,
-                   eo.date,
-                   dv.name AS division, r.name AS role,
-                   p.id AS placement_id, p.result, p.points
+                   eo.id AS occurrence_id, eo.date,
+                   dv.id AS division_id, dv.name AS division,
+                   r.id AS role_id, r.name AS role,
+                   p.result, p.points
             FROM favorite_dancers fd
             JOIN dancers d ON d.id = fd.dancer_id
             JOIN placements p ON p.dancer_id = fd.dancer_id
@@ -561,11 +562,19 @@ async def favorites_feed(feed_token: str, request: Request):
         )
         # First-of-the-month dates; publish at midnight UTC for that month.
         pub = datetime(it["date"].year, it["date"].month, it["date"].day, tzinfo=timezone.utc)
+        # Derive the guid from the placement's stable natural key, not its
+        # surrogate id: the importer deletes and reinserts a dancer's placements
+        # on every run, so p.id changes each import and a guid keyed on it would
+        # make every item look new to RSS readers every time the importer runs.
+        guid = (
+            f"wsdc-placement-{it['dancer_id']}-{it['occurrence_id']}"
+            f"-{it['division_id']}-{it['role_id']}"
+        )
         lines += [
             "<item>",
             f"<title>{escape(title)}</title>",
             f"<link>{escape(base)}/dancer/{it['dancer_id']}</link>",
-            f'<guid isPermaLink="false">wsdc-placement-{it["placement_id"]}</guid>',
+            f'<guid isPermaLink="false">{guid}</guid>',
             f"<pubDate>{format_datetime(pub)}</pubDate>",
             f"<description>{escape(description)}</description>",
             "</item>",
