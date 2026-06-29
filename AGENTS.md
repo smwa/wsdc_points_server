@@ -132,7 +132,8 @@ server/
         ├── js/
         │   ├── list-search.js            # tokenized, debounced search over #item-list (events, upcoming)
         │   ├── dancers-list.js           # /dancers: embedded JSON, chunked render + search
-        │   └── distance-sort.js          # "sort by distance" via Geolocation + IP fallback (upcoming)
+        │   ├── distance-sort.js          # "sort by distance" via Geolocation + IP fallback (upcoming)
+        │   └── star.js                   # star/unstar via fetch (no nav → no extra history entry)
         └── icons/
             ├── getItOnGooglePlay.svg     # Google Play badge (copied from assets/)
             ├── favicon.png               # favicon (copied from the legacy assets/)
@@ -328,8 +329,20 @@ ISO, `Decimal` → float, `UUID` → str).
     JS renders it in 100-row chunks (appended on scroll via IntersectionObserver)
     with the same tokenized/debounced search. Requires JS (has a `<noscript>`).
     `GZipMiddleware` keeps the ~700 KB payload ~270 KB on the wire.
+  - `static/js/star.js` — intercepts `.star-form` submits and toggles the star
+    via `fetch` (POST, `redirect:"manual"`). The plain-form fallback uses
+    Post/Redirect/Get back to the same page, which adds a duplicate history entry
+    (so "back" needs two presses); fetch avoids the navigation entirely. Loaded
+    globally from `base.html`; falls back to a real submit on any error.
 
   Templates needing extra `<head>` tags use the `{% block head %}` in `base.html`.
+
+- **Behind a reverse proxy.** The container runs uvicorn with `--proxy-headers
+  --forwarded-allow-ips "*"` (see `Dockerfile`) so `X-Forwarded-Proto` is honored
+  and `request.base_url`/`request.url` are https. Absolute URLs (RSS feed, Open
+  Graph `og:url`/`og:image`, `sitemap.xml`, `robots.txt`, the ICS feed) derive
+  from those, so without this they render as http. Safe because the app is only
+  reachable through the proxy on a private network.
 - **Theme.** `css/index.css` is an immersive dark theme: CSS-variable tokens
   (`--brand` green, `--panel`, `--text`, etc.), a frosted translucent content
   panel over a full-bleed per-page dance photo, sticky blurred navbar with an
