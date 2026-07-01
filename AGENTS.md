@@ -139,7 +139,8 @@ server/
         │   ├── list-search.js            # tokenized, debounced search over #item-list (events, upcoming)
         │   ├── dancers-list.js           # /dancers: embedded JSON, chunked render + search
         │   ├── distance-sort.js          # "sort by distance" via Geolocation + IP fallback (upcoming)
-        │   └── star.js                   # star/unstar via fetch (no nav → no extra history entry)
+        │   ├── star.js                   # star/unstar via fetch (no nav → no extra history entry)
+        │   └── matomo.js                 # self-hosted Matomo analytics loader (mat.mechstack.dev, site 7)
         └── icons/
             ├── getItOnGooglePlay.svg     # Google Play badge (copied from assets/)
             ├── favicon.png               # favicon (copied from the legacy assets/)
@@ -481,6 +482,11 @@ ISO, `Decimal` → float, `UUID` → str).
     Post/Redirect/Get back to the same page, which adds a duplicate history entry
     (so "back" needs two presses); fetch avoids the navigation entirely. Loaded
     globally from `base.html`; falls back to a real submit on any error.
+  - `static/js/matomo.js` — self-hosted Matomo analytics (mat.mechstack.dev, site
+    id 7). The legacy Jekyll site inlined this snippet; here it's an external file
+    so the CSP stays strict (no `'unsafe-inline'`). Loaded globally from
+    `base.html`; the CSP allow-lists `https://mat.mechstack.dev` for `script-src`
+    (loads `matomo.js`), `img-src`, and `connect-src` (tracking to `matomo.php`).
 
   Templates needing extra `<head>` tags use the `{% block head %}` in `base.html`.
 
@@ -514,7 +520,8 @@ ISO, `Decimal` → float, `UUID` → str).
   production (HTTPS) so the session cookie is marked `Secure` — that flag also
   switches on the `Strict-Transport-Security` header.
 - **Hardening.** `main.py` adds a middleware setting `Content-Security-Policy`
-  (same-origin + `connect-src https://get.geojs.io` for the distance sort),
+  (same-origin + `https://get.geojs.io` for the distance sort and
+  `https://mat.mechstack.dev` for Matomo analytics),
   `X-Content-Type-Options`, `Referrer-Policy`, and `Cache-Control` for `/static`
   (30 d for images, 1 h for css/js). Unhandled and HTTP errors render the themed
   `error.html` via exception handlers — keep new templates working without extra
