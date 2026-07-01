@@ -16,14 +16,17 @@ log = logging.getLogger(__name__)
 
 LIMIT_TO_DANCE_STYLE = "West Coast Swing"
 
-# Tier system eras. Pre-ERA2_START rules are not publicly available.
-ERA2_START = datetime.date(2012, 1, 1)   # 3-tier system introduced
-ERA3_START = datetime.date(2018, 1, 3)   # 6-tier system introduced
+# Tier system eras (see AGENTS.md "Estimating Approximate Number of Competitors").
+# Pre-ERA1_START rules are not publicly available.
+ERA1_START = datetime.date(2007, 1, 1)   # 2007 rules: 3-tier, T1=8/6/4/2/1, T3=12/10/8/6/4; couple-based
+ERA2_START = datetime.date(2008, 11, 1)  # 2009 rules (updated Nov 2008): 3-tier, T1=5/4/3/2/1; couple-based
+ERA3_START = datetime.date(2011, 1, 1)   # 2011 rules: same points as Era 2, now per-role (not couples)
+ERA4_START = datetime.date(2018, 1, 3)   # 6-tier rules
 
-# Era 3 (2018-01-03+): map (result, points) -> tier string.
-# Points are unique per (position, tier), so the lookup is unambiguous for
-# results "1"-"5". "F" (additional finalist) is ambiguous and handled separately.
-_ERA3 = {
+# Era 4 (2018-01-03+): 6-tier, per-role.
+# Points are unique per (result, tier), so every result "1"-"5" is unambiguous.
+# "F" (additional finalist) earns 1-2 pts depending on tier — ambiguous, excluded.
+_ERA4 = {
     ("1",  3): "Tier 1, 5 - 10 competitors",
     ("1",  6): "Tier 2, 11 - 19 competitors",
     ("1", 10): "Tier 3, 20 - 39 competitors",
@@ -56,8 +59,10 @@ _ERA3 = {
     ("5", 12): "Tier 6, 130+ competitors",
 }
 
-# Era 2 (2012-01-01 to 2018-01-02): 3-tier system.
-_ERA2 = {
+# Era 2 + Era 3 (2008-11-01 to 2018-01-02): 3-tier, same point values for both.
+# Era 2 used couple-based counting (min of leaders/followers); Era 3 switched to
+# per-role counting. The tier boundaries and point values are identical.
+_ERA2_3 = {
     ("1",  5): "Tier 1, 5 - 15 competitors",
     ("1", 10): "Tier 2, 16 - 39 competitors",
     ("1", 15): "Tier 3, 40+ competitors",
@@ -75,20 +80,43 @@ _ERA2 = {
     ("5",  6): "Tier 3, 40+ competitors",
 }
 
+# Era 1 (2007-01-01 to 2008-10-31): 3-tier, couple-based, DIFFERENT point values.
+# T1: 8/6/4/2/1  T2: 10/8/6/4/2  T3: 12/10/8/6/4
+# T2 values are identical to later eras but T1 and T3 are unique to this period.
+_ERA1 = {
+    ("1",  8): "Tier 1, 5 - 15 couples",
+    ("1", 10): "Tier 2, 16 - 39 couples",
+    ("1", 12): "Tier 3, 40+ couples",
+    ("2",  6): "Tier 1, 5 - 15 couples",
+    ("2",  8): "Tier 2, 16 - 39 couples",
+    ("2", 10): "Tier 3, 40+ couples",
+    ("3",  4): "Tier 1, 5 - 15 couples",
+    ("3",  6): "Tier 2, 16 - 39 couples",
+    ("3",  8): "Tier 3, 40+ couples",
+    ("4",  2): "Tier 1, 5 - 15 couples",
+    ("4",  4): "Tier 2, 16 - 39 couples",
+    ("4",  6): "Tier 3, 40+ couples",
+    ("5",  1): "Tier 1, 5 - 15 couples",
+    ("5",  2): "Tier 2, 16 - 39 couples",
+    ("5",  4): "Tier 3, 40+ couples",
+}
+
 
 def _tier_for_placement(result: str, points: int, date: datetime.date) -> str | None:
     """Infer the competition tier from placement result, points, and date.
 
     Returns None for "F" (finalist) results — those 1-2 pt values are ambiguous
-    across tiers — and for pre-2012 data where the rules are not available.
+    across tiers — and for pre-2007 data where the rules are not available.
     """
     if result not in ("1", "2", "3", "4", "5"):
         return None
-    if date >= ERA3_START:
-        return _ERA3.get((result, points))
-    if date >= ERA2_START:
-        return _ERA2.get((result, points))
-    return None
+    if date >= ERA4_START:
+        return _ERA4.get((result, points))
+    if date >= ERA2_START:   # Era 2 and Era 3 share the same lookup table
+        return _ERA2_3.get((result, points))
+    if date >= ERA1_START:
+        return _ERA1.get((result, points))
+    return None  # pre-2007: rules not available
 
 
 @dataclass

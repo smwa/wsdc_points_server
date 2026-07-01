@@ -159,19 +159,44 @@ competitors.
 the same contest at the same event. Minimum for a WSDC-registered contest: 5 Leaders
 and 5 Followers in finals.
 
-### Era 1: Pre-January 2012 (rules not available)
+### Era 1: Pre-January 1, 2007 (rules not available)
 
-Versions of the WSDC rules predating January 1, 2012 existed (dated 11/1/2007,
-1/1/2009, 9/1/2010), but their tier structures are not publicly available. The 2012
-update noted "past points would not be affected," so pre-2012 records in the database
-use whatever system was in effect at the time. **Competitor counts cannot be reliably
-inferred from pre-2012 placements without locating those historical rule documents.**
-Inspect the actual point values in the data for that era to narrow down what system was
-in effect.
+No rule documents have been located for competitions before January 2007.
+**Competitor counts cannot be inferred from these records.**
 
-### Era 2: January 1, 2012 – January 2, 2018 (3-tier system)
+### Era 2: January 1, 2007 – October 31, 2008 (3-tier, couple-based, different point values)
 
-Source: WSDC Points Registry Guidelines, effective January 1, 2012 (December 2011 update).
+Source: WSDC Points Registry, effective January 1, 2007.  
+Tier was determined by the number of **couples** — the *lower* of leaders vs. followers —
+so both roles were always in the same tier. Point values for Tiers 1 and 3 differ from
+all later eras.
+
+| Tier | Couples | 1st | 2nd | 3rd | 4th | 5th | Additional |
+|------|---------|-----|-----|-----|-----|-----|------------|
+| 1    | 5–15    | 8   | 6   | 4   | 2   | 1   | 0          |
+| 2    | 16–39   | 10  | 8   | 6   | 4   | 2   | 1 pt each, 6th–10th |
+| 3    | 40+     | 12  | 10  | 8   | 6   | 4   | 1 pt, all finalists |
+
+Tier 1 1st-place value `8` and Tier 3 1st-place value `12` are unique to this era.
+Tier 2 values (10/8/6/4/2) are identical to the next era.
+
+### Era 3: November 1, 2008 – December 31, 2010 (3-tier, couple-based, revised points)
+
+Source: WSDC Points Registry, updated November 2008.  
+Still couple-based counting, but Tier 1 and 3 point values were revised.
+Identical point values to Era 4 below.
+
+| Tier | Couples | 1st | 2nd | 3rd | 4th | 5th | Additional |
+|------|---------|-----|-----|-----|-----|-----|------------|
+| 1    | 5–15    | 5   | 4   | 3   | 2   | 1   | 0          |
+| 2    | 16–39   | 10  | 8   | 6   | 4   | 2   | 1 pt each, 6th–10th |
+| 3    | 40+     | 15  | 12  | 10  | 8   | 6   | 1 pt, all finalists |
+
+### Era 4: January 1, 2011 – January 2, 2018 (3-tier, per-role counting)
+
+Source: WSDC Points Registry, updated August 2010, effective January 1, 2011.  
+Switched from couple-based to **per-role** counting: leaders and followers can now fall
+into different tiers for the same contest. Same point values as Era 3.
 
 | Tier | Competitors (per role) | 1st | 2nd | 3rd | 4th | 5th | Additional |
 |------|------------------------|-----|-----|-----|-----|-----|------------|
@@ -179,14 +204,10 @@ Source: WSDC Points Registry Guidelines, effective January 1, 2012 (December 201
 | 2    | 16–39                  | 10  | 8   | 6   | 4   | 2   | 1 pt each, 6th–10th |
 | 3    | 40+                    | 15  | 12  | 10  | 8   | 6   | 1 pt, all finalists |
 
-For any placement position, the point value uniquely identifies the tier. Example:
-1st-place points of `5` → Tier 1 (5–15 competitors); `10` → Tier 2 (16–39); `15` →
-Tier 3 (40+).
-
 **Caution:** 1st-place values `10` and `15` overlap with the post-2018 system (Tier 3 and
 Tier 4 respectively). Always check the competition date before applying this table.
 
-### Era 3: January 3, 2018 – present (6-tier system)
+### Era 5: January 3, 2018 – present (6-tier system)
 
 Announced at the WSDC general membership meeting, November 25, 2017; effective
 January 3, 2018. Based on WSDC's analysis of 2015–2016 competition data.
@@ -219,17 +240,24 @@ These changes affect only how many places beyond 5th receive any points; they do
 
 ### How the code uses this
 
-`src/importer/transform.py` has `_tier_for_points(points)` which maps 1st-place
-points to a human-readable tier string. It applies only to competitions on or after
-`RULE_CHANGE_DATE = datetime.date(2020, 1, 1)`. The actual rule change was
-**January 3, 2018**; the 2020 cutoff is conservative and slightly wrong — 2018–2019
-data already used the 6-tier system. The mapping is:
+`src/importer/transform.py` implements `_tier_for_placement(result, points, date)`
+which selects the era by date, then does a `(result, points)` lookup in that era's
+table. Era boundaries are defined as constants:
 
 ```python
-{3: "Tier 1, 5 - 10 competitors",   6: "Tier 2, 11 - 19 competitors",
- 10: "Tier 3, 20 - 39 competitors", 15: "Tier 4, 40 - 79 competitors",
- 20: "Tier 5, 80 - 129 competitors", 25: "Tier 6, 130+ competitors"}
+ERA1_START = datetime.date(2007, 1, 1)   # 2007 rules
+ERA2_START = datetime.date(2008, 11, 1)  # 2009 rules (updated Nov 2008)
+ERA3_START = datetime.date(2011, 1, 1)   # per-role counting (same points as Era 2/3)
+ERA4_START = datetime.date(2018, 1, 3)   # 6-tier rules
 ```
+
+Lookup tables: `_ERA1`, `_ERA2_3` (shared by Eras 3 and 4 — same point values),
+`_ERA4`. Returns `None` for "F" (finalist) results and pre-2007 dates.
+
+Tiers are stored in `event_occurrence_tiers` keyed on
+`(event_occurrence_id, division_id, role_id)` — one row per role per division per
+occurrence. Any result in `("1","2","3","4","5")` that resolves unambiguously to a
+tier triggers an upsert; the last writer wins (idempotent across dancer imports).
 
 The `event_occurrence_tiers` table stores the tier string for each 1st-place finish
 (post-2020 per the current code), so SQL like the following can recover the competitor
