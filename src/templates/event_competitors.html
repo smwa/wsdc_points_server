@@ -2,12 +2,12 @@
 
 {% block body_class %}bg-event{% endblock %}
 
-{% block title %}{{ occ.event_name }} {{ occ.date.strftime('%B %Y') }} &mdash; Competitors{% endblock %}
+{% block title %}{{ occ.event_name }} {{ occ.date.strftime('%B %Y') }} &mdash; Pointed{% endblock %}
 
 {% block content %}
 <h1>{{ occ.event_name }}</h1>
 <p class="updated">
-  {{ occ.date.strftime('%B %Y') }} &middot; {{ total }} competitors &middot;
+  {{ occ.date.strftime('%B %Y') }} &middot; {{ total }} pointed &middot;
   <a href="/event/{{ occ.event_id }}">back to event</a>
 </p>
 
@@ -33,6 +33,6 @@
   </table>
 </section>
 {% else %}
-<p>No competitor data for this occurrence.</p>
+<p>No results for this occurrence.</p>
 {% endfor %}
 {% endblock %}

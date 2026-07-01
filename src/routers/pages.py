@@ -191,13 +191,17 @@ async def dancer(
     all_months = [m for by_month in monthly_by_role.values() for m in by_month]
     if all_months:
         first, last = min(all_months), max(all_months)
+        # Start a month before the first points so every line rises from the
+        # 0 baseline instead of beginning mid-air at its first value.
+        start = date(first.year - 1, 12, 1) if first.month == 1 \
+            else date(first.year, first.month - 1, 1)
 
         def cumulative_series(by_month: dict) -> list:
             if not by_month:
                 return []
             series = []
             cumulative = 0
-            year, month = first.year, first.month
+            year, month = start.year, start.month
             while (year, month) <= (last.year, last.month):
                 cumulative += by_month.get(date(year, month, 1), 0)
                 series.append((date(year, month, 1), cumulative))
@@ -330,7 +334,7 @@ async def event(event_id: int, request: Request):
             "tiered_occurrences": tiered_occurrences,
             "untiered_dates": untiered_dates,
             "chart": chart,
-            "chart_label": "Competitors per occurrence over time",
+            "chart_label": "Dancers who pointed per occurrence over time",
         },
     )
 

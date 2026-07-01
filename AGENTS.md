@@ -25,7 +25,8 @@ sandbox, so expect to debug runtime/SQL issues on the first real run):
 - `/health` and the server-rendered pages: home `/`, `/about`, `/dancers`,
   `/dancer/{id}` (star toggle, "can compete" eligibility, points, placements,
   points-over-time chart), `/events`, `/event/{id}` (per-occurrence tiers,
-  competitor-count links, competitors-over-time chart),
+  "pointed"-count links (dancers who placed high enough to earn points, not
+  total entrants), pointed-over-time chart),
   `/event-competitors/{occurrence_id}` (placements per division/role),
   `/upcoming-events`, and `/dancers-over-time`. Line charts are server-rendered
   SVG via `src/charts.py` + the `_line_chart.html` partial; the dancer
@@ -503,8 +504,9 @@ Done: `/about`; `/events` (searchable card list); `/dancers` (full list embedded
 as JSON, rendered client-side in chunks, id-desc, tokenized search); `/dancer/{id}`
 (star-icon favorite toggle, points pivoted to Division/Leader/Follower, cleaned
 placements table, points-over-time chart); `/event/{id}` (tiered occurrences as
-a Division/Leader/Follower table, a per-date competitor-count link, and a
-competitors-over-time chart; other dates listed plainly);
+a Division/Leader/Follower table, a per-date "pointed"-count link (dancers who
+earned points, not total entrants), and a pointed-over-time chart; other dates
+listed plainly);
 `/event-competitors/{occurrence_id}` (placements grouped by division then role,
 place/points/dancer link); `/upcoming-events` (search, distance sort,
 Google-Maps location links, `/wsdc_events.ics` calendar feed);

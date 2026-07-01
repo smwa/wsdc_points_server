@@ -14,7 +14,7 @@
 {% for occ in tiered_occurrences %}
 <section class="event-occurrence">
   <h3>{{ occ.date.strftime('%B %Y') }}
-    <small><a href="/event-competitors/{{ occ.id }}">{{ occ.competitors }} competitors</a></small>
+    <small><a href="/event-competitors/{{ occ.id }}">{{ occ.competitors }} pointed</a></small>
   </h3>
   <table class="data-table">
     <thead>
@@ -38,7 +38,7 @@
   {% for occ in untiered_dates %}
   <li>
     {{ occ.date.strftime('%B %Y') }}
-    <small><a href="/event-competitors/{{ occ.id }}">{{ occ.competitors }} competitors</a></small>
+    <small><a href="/event-competitors/{{ occ.id }}">{{ occ.competitors }} pointed</a></small>
   </li>
   {% endfor %}
 </ul>
@@ -49,7 +49,7 @@
 {% endif %}
 
 {% if chart %}
-<h2>Competitors over time</h2>
+<h2>Pointed over time</h2>
 {% include "_line_chart.html" %}
 {% endif %}
 {% endblock %}

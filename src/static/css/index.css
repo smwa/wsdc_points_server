@@ -305,7 +305,12 @@ h3 small {
   font-weight: normal;
   font-size: 0.8rem;
 }
-h3 small a { color: var(--muted); }
+h3 small a,
+.dates-held small a {
+  color: var(--brand-light);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 /* ── SVG line charts ───────────────────────────────────────────────────── */
 .chart {
