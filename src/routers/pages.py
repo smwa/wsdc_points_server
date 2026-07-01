@@ -170,25 +170,35 @@ async def dancer(
         {"role": "Follower", "divisions": eligibility.get(2, [])},
     ]
 
-    # Cumulative total points over time (all roles/divisions), by month.
-    monthly_points: dict = {}
+    # Cumulative points over time, one line per role, sharing a month axis.
+    monthly_by_role: dict = {"Leader": {}, "Follower": {}}
     for p in placements:
         month = date(p["date"].year, p["date"].month, 1)
-        monthly_points[month] = monthly_points.get(month, 0) + p["points"]
+        by_month = monthly_by_role.setdefault(p["role"], {})
+        by_month[month] = by_month.get(month, 0) + p["points"]
     chart = None
-    if monthly_points:
-        months = sorted(monthly_points)
-        first, last = months[0], months[-1]
-        series = []
-        cumulative = 0
-        year, month = first.year, first.month
-        while (year, month) <= (last.year, last.month):
-            cumulative += monthly_points.get(date(year, month, 1), 0)
-            series.append((date(year, month, 1), cumulative))
-            month += 1
-            if month > 12:
-                month, year = 1, year + 1
-        chart = charts.line_chart(series)
+    all_months = [m for by_month in monthly_by_role.values() for m in by_month]
+    if all_months:
+        first, last = min(all_months), max(all_months)
+
+        def cumulative_series(by_month: dict) -> list:
+            if not by_month:
+                return []
+            series = []
+            cumulative = 0
+            year, month = first.year, first.month
+            while (year, month) <= (last.year, last.month):
+                cumulative += by_month.get(date(year, month, 1), 0)
+                series.append((date(year, month, 1), cumulative))
+                month += 1
+                if month > 12:
+                    month, year = 1, year + 1
+            return series
+
+        chart = charts.multi_line_chart(
+            [(role, cumulative_series(monthly_by_role[role]))
+             for role in ("Leader", "Follower")]
+        )
 
     return templates.TemplateResponse(
         request,

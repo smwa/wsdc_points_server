@@ -80,8 +80,8 @@
 <p>No placements yet.</p>
 {% endif %}
 
-{% if chart %}
+{% if chart and chart.lines %}
 <h2>Points Over Time</h2>
-{% include "_line_chart.html" %}
+{% include "_multi_line_chart.html" %}
 {% endif %}
 {% endblock %}

@@ -317,6 +317,28 @@ h3 small a { color: var(--muted); }
 .line-chart .axis { fill: var(--muted); font-size: 11px; }
 .line-chart .line { fill: none; stroke: var(--brand-light); stroke-width: 2.5; }
 .line-chart .area { fill: rgba(67, 197, 118, 0.16); stroke: none; }
+.line-chart .line.leader { stroke: var(--brand-light); }
+.line-chart .line.follower { stroke: var(--gold); }
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.chart-legend li { display: flex; align-items: center; }
+.chart-legend li::before {
+  content: "";
+  width: 1.1rem;
+  height: 0.2rem;
+  margin-right: 0.4rem;
+  border-radius: 1px;
+  background: var(--brand-light);
+}
+.chart-legend li.follower::before { background: var(--gold); }
 
 /* ── Small screens ─────────────────────────────────────────────────────── */
 @media (max-width: 36rem) {
