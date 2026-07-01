@@ -11,6 +11,13 @@
     {% for l in chart.lines %}
     <polyline class="line {{ l.name | lower }}" points="{{ l.points }}" />
     {% endfor %}
+    {% for l in chart.lines %}
+    {% for d in l.dots %}
+    <circle class="dot {{ l.name | lower }}" cx="{{ d.cx }}" cy="{{ d.cy }}" r="4">
+      <title>{{ l.name }} — first {{ d.label }} points</title>
+    </circle>
+    {% endfor %}
+    {% endfor %}
   </svg>
   <ul class="chart-legend">
     {% for l in chart.lines %}

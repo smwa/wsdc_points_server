@@ -120,31 +120,37 @@ def line_chart(series) -> dict:
 def multi_line_chart(named_series) -> dict:
     """Build chart geometry for several series that share one pair of axes.
 
-    ``named_series`` is a list of ``(name, series)`` pairs, each ``series`` a
-    list of ``(date, value)`` points. Series with no points are dropped. Axes
-    are scaled to the combined extent so the lines line up; the result has a
-    ``lines`` list (one polyline per remaining series, in input order) instead
-    of the single ``points``/``area`` that `line_chart` returns.
+    ``named_series`` is a list of ``(name, series, markers)`` triples, each
+    ``series`` a list of ``(date, value)`` points and ``markers`` a list of
+    ``(date, value, label)`` points to draw as labelled dots on the line.
+    Series with no points are dropped. Axes are scaled to the combined extent so
+    the lines line up; the result has a ``lines`` list (one polyline plus its
+    ``dots`` per remaining series, in input order) instead of the single
+    ``points``/``area`` that `line_chart` returns.
     """
-    named_series = [(name, list(s)) for name, s in named_series if s]
+    named_series = [(name, list(s), list(m)) for name, s, m in named_series if s]
     if not named_series:
         return {**_empty(), "lines": []}
 
     plot_w = WIDTH - PAD_L - PAD_R
     plot_h = HEIGHT - PAD_T - PAD_B
 
-    all_dates = [d for _, s in named_series for d, _ in s]
+    all_dates = [d for _, s, _ in named_series for d, _ in s]
     all_xs = [_year_frac(d) for d in all_dates]
-    all_ys = [v for _, s in named_series for _, v in s]
+    all_ys = [v for _, s, _ in named_series for _, v in s]
     minx, maxx = min(all_xs), max(all_xs)
     spanx = (maxx - minx) or 1
     maxv = max(all_ys) or 1
+    # Scale y to a round multiple of the tick step so every gridline — including
+    # the top one — is evenly spaced (the data peak sits just under the top).
+    step = _nice_step(maxv, 7)
+    axis_max = math.ceil(maxv / step) * step
 
     def xf(x: float) -> float:
         return PAD_L + plot_w * ((x - minx) / spanx)
 
     def yf(v: float) -> float:
-        return PAD_T + plot_h * (1 - v / maxv)
+        return PAD_T + plot_h * (1 - v / axis_max)
 
     lines = [
         {
@@ -152,32 +158,39 @@ def multi_line_chart(named_series) -> dict:
             "points": " ".join(
                 f"{xf(_year_frac(d)):.1f},{yf(v):.1f}" for d, v in s
             ),
+            "dots": [
+                {
+                    "cx": f"{xf(_year_frac(d)):.1f}",
+                    "cy": f"{yf(v):.1f}",
+                    "label": label,
+                }
+                for d, v, label in markers
+            ],
         }
-        for name, s in named_series
+        for name, s, markers in named_series
     ]
 
-    # --- y ticks: nice round 0..max, keeping 0 and max ------------------------
-    step = _nice_step(maxv, 7)
-    yvals = {0, int(maxv)} | set(range(0, int(maxv) + 1, step))
-    yticks = [{"y": f"{yf(v):.1f}", "label": f"{int(round(v)):,}"} for v in sorted(yvals)]
+    # --- y ticks: uniform 0..axis_max in equal steps -------------------------
+    yticks = [
+        {"y": f"{yf(v):.1f}", "label": f"{v:,}"}
+        for v in range(0, axis_max + 1, step)
+    ]
 
-    # --- x ticks: nice years, always including the first and last date --------
-    first_year, last_year = min(all_dates).year, max(all_dates).year
-    endpoints = [(minx, str(first_year)), (maxx, str(last_year))]
+    # --- x ticks: whole years at a fixed step, so gaps are evenly spaced ------
     if minx == maxx:
-        ordered = [endpoints[0]]
+        ordered = [(minx, min(all_dates).year)]
     else:
-        end_labels = {label for _, label in endpoints}
         year_step = max(1, round((maxx - minx) / 8))
-        years = range(math.ceil(minx), math.floor(maxx) + 1, year_step)
-        middles = [
-            (float(y), str(y))
-            for y in years
-            if str(y) not in end_labels
-            and all(abs(xf(y) - xf(ex)) > 26 for ex, _ in endpoints)
-        ]
-        ordered = [endpoints[0]] + sorted(middles) + [endpoints[1]]
-    xticks = [{"x": f"{xf(x):.1f}", "label": label} for x, label in ordered]
+        years = list(range(math.ceil(minx), math.floor(maxx) + 1, year_step))
+        if years:
+            ordered = [(float(y), y) for y in years]
+        else:  # span under a year: no whole year falls inside, label the ends
+            first_year, last_year = min(all_dates).year, max(all_dates).year
+            if first_year == last_year:
+                ordered = [((minx + maxx) / 2, first_year)]
+            else:
+                ordered = [(minx, first_year), (maxx, last_year)]
+    xticks = [{"x": f"{xf(x):.1f}", "label": str(label)} for x, label in ordered]
 
     return {
         "width": WIDTH,

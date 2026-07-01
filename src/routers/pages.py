@@ -131,7 +131,7 @@ async def dancer(
             """
             SELECT eo.date,
                    e.id AS event_id, e.name AS event_name,
-                   dv.name AS division, r.name AS role,
+                   dv.id AS division_id, dv.name AS division, r.name AS role,
                    p.result, p.points
             FROM placements p
             JOIN event_occurrences eo ON eo.id = p.event_occurrence_id
@@ -176,6 +176,17 @@ async def dancer(
         month = date(p["date"].year, p["date"].month, 1)
         by_month = monthly_by_role.setdefault(p["role"], {})
         by_month[month] = by_month.get(month, 0) + p["points"]
+    # Earliest month each role first scored in each laddered (skill-ladder)
+    # division, to mark on the line with a labelled dot.
+    first_ladder_month: dict = {}
+    for p in placements:
+        if p["division_id"] not in divisions.DIVISION_NAMES:
+            continue
+        month = date(p["date"].year, p["date"].month, 1)
+        key = (p["role"], p["division_id"])
+        if key not in first_ladder_month or month < first_ladder_month[key]:
+            first_ladder_month[key] = month
+
     chart = None
     all_months = [m for by_month in monthly_by_role.values() for m in by_month]
     if all_months:
@@ -195,8 +206,18 @@ async def dancer(
                     month, year = 1, year + 1
             return series
 
+        def ladder_markers(role: str, series: list) -> list:
+            value_at = dict(series)
+            markers = []
+            for div_id in divisions.PROGRESSION:
+                month = first_ladder_month.get((role, div_id))
+                if month in value_at:
+                    markers.append((month, value_at[month], divisions.DIVISION_NAMES[div_id]))
+            return markers
+
+        series_by_role = {r: cumulative_series(monthly_by_role[r]) for r in ("Leader", "Follower")}
         chart = charts.multi_line_chart(
-            [(role, cumulative_series(monthly_by_role[role]))
+            [(role, series_by_role[role], ladder_markers(role, series_by_role[role]))
              for role in ("Leader", "Follower")]
         )
 

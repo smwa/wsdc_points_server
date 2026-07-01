@@ -319,6 +319,9 @@ h3 small a { color: var(--muted); }
 .line-chart .area { fill: rgba(67, 197, 118, 0.16); stroke: none; }
 .line-chart .line.leader { stroke: var(--brand-light); }
 .line-chart .line.follower { stroke: var(--gold); }
+.line-chart .dot { stroke: var(--text); stroke-width: 1.5; }
+.line-chart .dot.leader { fill: var(--brand-light); }
+.line-chart .dot.follower { fill: var(--gold); }
 .chart-legend {
   display: flex;
   flex-wrap: wrap;

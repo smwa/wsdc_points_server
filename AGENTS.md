@@ -30,7 +30,9 @@ sandbox, so expect to debug runtime/SQL issues on the first real run):
   `/upcoming-events`, and `/dancers-over-time`. Line charts are server-rendered
   SVG via `src/charts.py` + the `_line_chart.html` partial; the dancer
   points-over-time chart uses `multi_line_chart` + `_multi_line_chart.html`
-  to draw one line per role (Leader/Follower) with a legend. A shared navbar
+  to draw one line per role (Leader/Follower) with a legend, plus a labelled
+  dot on each line at the month the role first scored in each laddered
+  (skill-ladder) division. A shared navbar
   (`base.html`) links the top-level pages.
 - PWA: web manifest + icons (ported from the legacy site) and a `theme-color`,
   wired in `base.html`. The Google Play button is hidden inside the Android app.
