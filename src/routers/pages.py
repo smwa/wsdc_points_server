@@ -17,6 +17,24 @@ from ..templates import templates
 
 router = APIRouter(tags=["pages"])
 
+_TIER_RANGE_RE = re.compile(r'(\d+)\s*-\s*(\d+)')
+_TIER_OPEN_RE  = re.compile(r'(\d+)\+')
+
+
+def _tier_midpoint(tier: str) -> int:
+    """Return the midpoint of a tier's competitor-count range.
+
+    For bounded ranges ("5 - 10 competitors") returns the integer midpoint.
+    For open-ended ranges ("130+ competitors") returns the lower bound.
+    """
+    m = _TIER_RANGE_RE.search(tier)
+    if m:
+        return (int(m.group(1)) + int(m.group(2))) // 2
+    m = _TIER_OPEN_RE.search(tier)
+    if m:
+        return int(m.group(1))
+    return 0
+
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request, user_id: uuid.UUID = Depends(current_user_id)):
@@ -317,14 +335,28 @@ async def event(event_id: int, request: Request):
                 {"id": occ["id"], "date": occ["date"], "competitors": count}
             )
 
-    # Competitors-per-occurrence over time (chronological, true date spacing).
-    # Skipped for events held only once — a single point isn't a useful chart.
+    # Sum tier midpoints per occurrence → estimated total competitors across all
+    # divisions and roles. Each tier row covers one role of one division, so
+    # summing them gives a reasonable estimate of total competitors at the event.
+    # Era 1 (couple-based) tiers produce one row per role, both with the couple-
+    # count range, so summing leaders + followers gives the total competitor count.
+    estimated_by_occ: dict = {}
+    for row in tier_rows:
+        oid = row["event_occurrence_id"]
+        estimated_by_occ[oid] = estimated_by_occ.get(oid, 0) + _tier_midpoint(row["tier"])
+
+    # Chart: two series over time. "Competitors" uses tier-derived estimates where
+    # available; "Pointed" counts everyone who placed in that occurrence (always
+    # available). Skipped when the event has only one occurrence.
     occ_asc = sorted(occurrences, key=lambda o: o["date"])
     chart = None
     if len(occ_asc) > 1:
-        chart = charts.line_chart(
-            [(o["date"], competitors.get(o["id"], 0)) for o in occ_asc]
-        )
+        est_series = [
+            (o["date"], estimated_by_occ[o["id"]])
+            for o in occ_asc
+            if o["id"] in estimated_by_occ
+        ]
+        chart = charts.line_chart(est_series) if len(est_series) > 1 else None
 
     return templates.TemplateResponse(
         request,
@@ -334,7 +366,7 @@ async def event(event_id: int, request: Request):
             "tiered_occurrences": tiered_occurrences,
             "untiered_dates": untiered_dates,
             "chart": chart,
-            "chart_label": "Dancers who pointed per occurrence over time",
+            "chart_label": "Estimated total competitors per occurrence over time",
         },
     )
 
