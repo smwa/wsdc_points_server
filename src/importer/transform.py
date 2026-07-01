@@ -15,8 +15,80 @@ from dataclasses import dataclass, field
 log = logging.getLogger(__name__)
 
 LIMIT_TO_DANCE_STYLE = "West Coast Swing"
-# Tier info only applies to results under the post-2020 points rules.
-RULE_CHANGE_DATE = datetime.date(2020, 1, 1)
+
+# Tier system eras. Pre-ERA2_START rules are not publicly available.
+ERA2_START = datetime.date(2012, 1, 1)   # 3-tier system introduced
+ERA3_START = datetime.date(2018, 1, 3)   # 6-tier system introduced
+
+# Era 3 (2018-01-03+): map (result, points) -> tier string.
+# Points are unique per (position, tier), so the lookup is unambiguous for
+# results "1"-"5". "F" (additional finalist) is ambiguous and handled separately.
+_ERA3 = {
+    ("1",  3): "Tier 1, 5 - 10 competitors",
+    ("1",  6): "Tier 2, 11 - 19 competitors",
+    ("1", 10): "Tier 3, 20 - 39 competitors",
+    ("1", 15): "Tier 4, 40 - 79 competitors",
+    ("1", 20): "Tier 5, 80 - 129 competitors",
+    ("1", 25): "Tier 6, 130+ competitors",
+    ("2",  2): "Tier 1, 5 - 10 competitors",
+    ("2",  4): "Tier 2, 11 - 19 competitors",
+    ("2",  8): "Tier 3, 20 - 39 competitors",
+    ("2", 12): "Tier 4, 40 - 79 competitors",
+    ("2", 16): "Tier 5, 80 - 129 competitors",
+    ("2", 22): "Tier 6, 130+ competitors",
+    ("3",  1): "Tier 1, 5 - 10 competitors",
+    ("3",  3): "Tier 2, 11 - 19 competitors",
+    ("3",  6): "Tier 3, 20 - 39 competitors",
+    ("3", 10): "Tier 4, 40 - 79 competitors",
+    ("3", 14): "Tier 5, 80 - 129 competitors",
+    ("3", 18): "Tier 6, 130+ competitors",
+    ("4",  0): "Tier 1, 5 - 10 competitors",
+    ("4",  2): "Tier 2, 11 - 19 competitors",
+    ("4",  4): "Tier 3, 20 - 39 competitors",
+    ("4",  8): "Tier 4, 40 - 79 competitors",
+    ("4", 12): "Tier 5, 80 - 129 competitors",
+    ("4", 15): "Tier 6, 130+ competitors",
+    ("5",  0): "Tier 1, 5 - 10 competitors",
+    ("5",  1): "Tier 2, 11 - 19 competitors",
+    ("5",  2): "Tier 3, 20 - 39 competitors",
+    ("5",  6): "Tier 4, 40 - 79 competitors",
+    ("5", 10): "Tier 5, 80 - 129 competitors",
+    ("5", 12): "Tier 6, 130+ competitors",
+}
+
+# Era 2 (2012-01-01 to 2018-01-02): 3-tier system.
+_ERA2 = {
+    ("1",  5): "Tier 1, 5 - 15 competitors",
+    ("1", 10): "Tier 2, 16 - 39 competitors",
+    ("1", 15): "Tier 3, 40+ competitors",
+    ("2",  4): "Tier 1, 5 - 15 competitors",
+    ("2",  8): "Tier 2, 16 - 39 competitors",
+    ("2", 12): "Tier 3, 40+ competitors",
+    ("3",  3): "Tier 1, 5 - 15 competitors",
+    ("3",  6): "Tier 2, 16 - 39 competitors",
+    ("3", 10): "Tier 3, 40+ competitors",
+    ("4",  2): "Tier 1, 5 - 15 competitors",
+    ("4",  4): "Tier 2, 16 - 39 competitors",
+    ("4",  8): "Tier 3, 40+ competitors",
+    ("5",  1): "Tier 1, 5 - 15 competitors",
+    ("5",  2): "Tier 2, 16 - 39 competitors",
+    ("5",  6): "Tier 3, 40+ competitors",
+}
+
+
+def _tier_for_placement(result: str, points: int, date: datetime.date) -> str | None:
+    """Infer the competition tier from placement result, points, and date.
+
+    Returns None for "F" (finalist) results — those 1-2 pt values are ambiguous
+    across tiers — and for pre-2012 data where the rules are not available.
+    """
+    if result not in ("1", "2", "3", "4", "5"):
+        return None
+    if date >= ERA3_START:
+        return _ERA3.get((result, points))
+    if date >= ERA2_START:
+        return _ERA2.get((result, points))
+    return None
 
 
 @dataclass
@@ -30,20 +102,10 @@ class DancerData:
     occurrences: set = field(default_factory=set)
     # (event_id, date, role_id, division_id, result, points)
     placements: list = field(default_factory=list)
-    # (event_id, date, division_id, role_id, tier) for this dancer's wins
+    # (event_id, date, division_id, role_id, tier) — one entry per unique key
     tiers: list = field(default_factory=list)
-
-
-def _tier_for_points(points: int):
-    """Map first-place points to a human-readable competition tier."""
-    return {
-        3: "Tier 1, 5 - 10 competitors",
-        6: "Tier 2, 11 - 19 competitors",
-        10: "Tier 3, 20 - 39 competitors",
-        15: "Tier 4, 40 - 79 competitors",
-        20: "Tier 5, 80 - 129 competitors",
-        25: "Tier 6, 130+ competitors",
-    }.get(points)
+    # internal: tracks which (event_id, date, div_id, role_id) keys are in tiers
+    _tier_keys: set = field(default_factory=set)
 
 
 def _parse_event_date(raw: str) -> datetime.date:
@@ -92,9 +154,11 @@ def _flatten_role(data: DancerData, placements, resolve_division):
                 (event_id, date, role_id, division_id, result, points)
             )
 
-            if result == "1" and date >= RULE_CHANGE_DATE:
-                tier = _tier_for_points(points)
-                if tier is not None:
+            tier = _tier_for_placement(result, points, date)
+            if tier is not None:
+                tier_key = (event_id, date, division_id, role_id)
+                if tier_key not in data._tier_keys:
+                    data._tier_keys.add(tier_key)
                     data.tiers.append((event_id, date, division_id, role_id, tier))
 
 

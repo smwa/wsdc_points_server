@@ -147,6 +147,111 @@ server/
             └── apple-mask-icon.svg       # PWA monochrome icon
 ```
 
+## Estimating Approximate Number of Competitors
+
+The WSDC awards points per placement based on a tier system where the number of
+competitors in a role (Leader or Follower) for a given division determines the tier, which
+determines the points awarded. Working backwards, given the points earned by any
+placement we can identify the tier and thus estimate the approximate number of
+competitors.
+
+**Key principle:** Tiers are per-role — Leaders and Followers may be in different tiers for
+the same contest at the same event. Minimum for a WSDC-registered contest: 5 Leaders
+and 5 Followers in finals.
+
+### Era 1: Pre-January 2012 (rules not available)
+
+Versions of the WSDC rules predating January 1, 2012 existed (dated 11/1/2007,
+1/1/2009, 9/1/2010), but their tier structures are not publicly available. The 2012
+update noted "past points would not be affected," so pre-2012 records in the database
+use whatever system was in effect at the time. **Competitor counts cannot be reliably
+inferred from pre-2012 placements without locating those historical rule documents.**
+Inspect the actual point values in the data for that era to narrow down what system was
+in effect.
+
+### Era 2: January 1, 2012 – January 2, 2018 (3-tier system)
+
+Source: WSDC Points Registry Guidelines, effective January 1, 2012 (December 2011 update).
+
+| Tier | Competitors (per role) | 1st | 2nd | 3rd | 4th | 5th | Additional |
+|------|------------------------|-----|-----|-----|-----|-----|------------|
+| 1    | 5–15                   | 5   | 4   | 3   | 2   | 1   | 0          |
+| 2    | 16–39                  | 10  | 8   | 6   | 4   | 2   | 1 pt each, 6th–10th |
+| 3    | 40+                    | 15  | 12  | 10  | 8   | 6   | 1 pt, all finalists |
+
+For any placement position, the point value uniquely identifies the tier. Example:
+1st-place points of `5` → Tier 1 (5–15 competitors); `10` → Tier 2 (16–39); `15` →
+Tier 3 (40+).
+
+**Caution:** 1st-place values `10` and `15` overlap with the post-2018 system (Tier 3 and
+Tier 4 respectively). Always check the competition date before applying this table.
+
+### Era 3: January 3, 2018 – present (6-tier system)
+
+Announced at the WSDC general membership meeting, November 25, 2017; effective
+January 3, 2018. Based on WSDC's analysis of 2015–2016 competition data.
+
+| Tier | Competitors (per role) | 1st | 2nd | 3rd | 4th | 5th | Additional |
+|------|------------------------|-----|-----|-----|-----|-----|------------|
+| 1    | 5–10                   | 3   | 2   | 1   | 0   | 0   | 0 |
+| 2    | 11–19                  | 6   | 4   | 3   | 2   | 1   | 0 |
+| 3    | 20–39                  | 10  | 8   | 6   | 4   | 2   | 1 pt, up to 10th |
+| 4    | 40–79                  | 15  | 12  | 10  | 8   | 6   | 1 pt, up to 12th |
+| 5    | 80–129                 | 20  | 16  | 14  | 12  | 10  | 2 pts, up to 15th |
+| 6    | 130+                   | 25  | 22  | 18  | 15  | 12  | 2 pts, up to 15th |
+
+For any placement position 1st–5th, the point value uniquely identifies the tier across
+all six tiers. Example: 1st place with 20 points → Tier 5 → 80–129 competitors.
+
+**Tier 6 is open-ended.** Tier 6 covers 130+ competitors with no upper bound; large
+events regularly field 200–400+ competitors per role in popular divisions.
+
+#### Minor changes to additional-placement cutoffs within the 6-tier era
+
+These changes affect only how many places beyond 5th receive any points; they do
+**not** change the 1st–5th point values used to identify the tier.
+
+| Period | Tier 3 additional | Tier 4 additional | Tier 5 additional |
+|--------|-------------------|-------------------|-------------------|
+| Jan 2018 – ~early 2024 | 1 pt, up to 12th | 1 pt, up to 15th | 1 pt, up to 15th |
+| ~March 2024 – ~late 2024 | 1 pt, up to 10th | 1 pt, up to 15th | 2 pts, up to 15th |
+| Jan 2025 – present | 1 pt, up to 10th | 1 pt, up to 12th | 2 pts, up to 15th |
+
+### How the code uses this
+
+`src/importer/transform.py` has `_tier_for_points(points)` which maps 1st-place
+points to a human-readable tier string. It applies only to competitions on or after
+`RULE_CHANGE_DATE = datetime.date(2020, 1, 1)`. The actual rule change was
+**January 3, 2018**; the 2020 cutoff is conservative and slightly wrong — 2018–2019
+data already used the 6-tier system. The mapping is:
+
+```python
+{3: "Tier 1, 5 - 10 competitors",   6: "Tier 2, 11 - 19 competitors",
+ 10: "Tier 3, 20 - 39 competitors", 15: "Tier 4, 40 - 79 competitors",
+ 20: "Tier 5, 80 - 129 competitors", 25: "Tier 6, 130+ competitors"}
+```
+
+The `event_occurrence_tiers` table stores the tier string for each 1st-place finish
+(post-2020 per the current code), so SQL like the following can recover the competitor
+range for any 1st-place win without re-deriving from points:
+
+```sql
+SELECT tier FROM event_occurrence_tiers
+WHERE event_occurrence_id = $1 AND division_id = $2 AND role_id = $3;
+```
+
+### Deriving competitor count for any placement
+
+1. Get the competition date for the placement.
+2. Select the applicable tier table (3-tier for Jan 2012–Jan 2018; 6-tier for Jan 2018+;
+   unknown for pre-Jan 2012).
+3. Find which tier's row matches the placement's (position, points) pair. For positions
+   1st–5th the match is unambiguous within each era. For additional placements
+   (all earning 1–2 pts), check the 1st-place points for the same
+   event/occurrence/division/role to confirm the tier.
+4. The tier gives the competitor count range. Use the range midpoint or the range
+   itself depending on the use case.
+
 ## Database
 
 The schema mirrors the relational design documented in the root `AGENTS.md`
