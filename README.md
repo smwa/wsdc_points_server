@@ -1,5 +1,7 @@
 # WSDC Points — server
 
+> The collected WSDC data can be downloaded at <https://wsdc.mechstack.dev/data.json>.
+
 A server-rendered site for **West Coast Swing** competition data from the
 [WSDC](https://worldsdc.com) registry: look up dancers' points and division
 eligibility, browse past events and their competitors, and see upcoming
