@@ -575,12 +575,13 @@ throttles the per-dancer fetch; `importer_pass_delay_seconds` sleeps between
 passes.
 
 **Prioritisation (`run.candidate_ids`).** A dancer who placed within
-`importer_recent_years` (default 3) is *likely* to have changed and is fetched
+`importer_recent_years` (default 2) is *likely* to have changed and is fetched
 **every pass** (likely cohort first). Everyone else is *unlikely* and only
 re-fetched once their `last_imported_at` is older than
 `importer_unlikely_refresh_days` (default 28) — so the long tail rotates through
 roughly monthly instead of being hammered weekly. (Offline mode ignores all of
-this and imports the whole file.)
+this and imports the whole file.) As of mid-2026 the likely cohort is ~9k of
+~26.5k dancers, so at the default 30 s delay a pass takes ~4 days.
 
 ### Per-dancer transaction (`run.import_dancer`)
 

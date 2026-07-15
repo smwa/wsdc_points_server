@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # "unlikely" and only re-fetched when their last import is older than
     # importer_unlikely_refresh_days. (Live mode only; ids not in the database
     # are never re-probed except the new-id scan above the current max id.)
-    importer_recent_years: int = 3
+    importer_recent_years: int = 2
     importer_unlikely_refresh_days: int = 28
 
     # Offline test mode: read the legacy raw cache files instead of hitting
