@@ -588,7 +588,7 @@ async def favorites_feed(feed_token: str, request: Request):
                    eo.id AS occurrence_id, eo.date,
                    dv.id AS division_id, dv.name AS division,
                    r.id AS role_id, r.name AS role,
-                   p.result, p.points
+                   p.result, p.points, p.first_seen_at
             FROM favorite_dancers fd
             JOIN dancers d ON d.id = fd.dancer_id
             JOIN placements p ON p.dancer_id = fd.dancer_id
@@ -597,7 +597,12 @@ async def favorites_feed(feed_token: str, request: Request):
             JOIN divisions dv ON dv.id = p.division_id
             JOIN roles r ON r.id = p.role_id
             WHERE fd.user_id = $1
-            ORDER BY eo.date DESC, p.id DESC
+              -- Only placements that arrived after this dancer was starred:
+              -- starring someone must not flood the feed with their entire
+              -- history, and event dates can't express this because results
+              -- are often imported weeks after the event (migration 010).
+              AND p.first_seen_at >= fd.created_at
+            ORDER BY p.first_seen_at DESC, p.id DESC
             LIMIT 50
             """,
             user_id,
@@ -627,12 +632,14 @@ async def favorites_feed(feed_token: str, request: Request):
             f"at {it['event_name']} ({where}) in {when}, earning {it['points']} "
             f"point{'s' if it['points'] != 1 else ''}."
         )
-        # First-of-the-month dates; publish at midnight UTC for that month.
-        pub = datetime(it["date"].year, it["date"].month, it["date"].day, tzinfo=timezone.utc)
+        # Publish when the placement first appeared in the database, not the
+        # event's first-of-the-month date — results are imported weeks after
+        # the event, and readers sort by pubDate, so this puts news on top.
+        pub = it["first_seen_at"]
         # Derive the guid from the placement's stable natural key, not its
-        # surrogate id: the importer deletes and reinserts a dancer's placements
-        # on every run, so p.id changes each import and a guid keyed on it would
-        # make every item look new to RSS readers every time the importer runs.
+        # surrogate id: ids are stable now that the importer upserts (migration
+        # 009), but the natural key is the placement's durable identity — and a
+        # guid must never change, or readers re-show every item as new.
         guid = (
             f"wsdc-placement-{it['dancer_id']}-{it['occurrence_id']}"
             f"-{it['division_id']}-{it['role_id']}"

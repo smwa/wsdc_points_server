@@ -108,7 +108,8 @@ server/
 │       ├── 006_dancer_last_imported.sql
 │       ├── 007_user_feed_token.sql
 │       ├── 008_event_name_as_of.sql
-│       └── 009_placements_natural_key.sql
+│       ├── 009_placements_natural_key.sql
+│       └── 010_placement_first_seen.sql
 └── src/                      # application code (a Python package)
     ├── config.py             # Settings (DATABASE_URL, cookie, importer knobs)
     ├── db.py                 # asyncpg pool factory
@@ -423,6 +424,16 @@ natural key — it's the durable identity regardless of how rows are written, an
 historically the importer reassigned `p.id` every pass, which made every item
 look brand-new to RSS readers on each run.
 
+The feed is a **news feed, not a history dump**: it only includes placements
+where `p.first_seen_at >= fd.created_at` (migration 010), so starring a dancer
+doesn't flood the reader with their entire competition history — only results
+imported after the star appear. `first_seen_at` (default `now()`, preserved by
+the guarded upsert) is also the item's `pubDate` and the sort key, because
+results are imported weeks after the event and readers sort by `pubDate`; the
+event's first-of-month date would bury fresh news under old-dated items.
+Consequence: a newly starred dancer contributes nothing until new results
+arrive for them.
+
 Prune visitors who haven't returned in over a year by running
 `database/cleanup_stale_users.sql` on a schedule (cron, etc.); the cascade
 removes their favorites.
@@ -594,7 +605,10 @@ Each dancer is written in a single `conn.transaction()`:
   delete-all-then-reinsert that churned the table (dead tuples + WAL even for
   unchanged rows) and reassigned `placements.id` every pass; ids are now stable,
   so `id` is safe to reference but the RSS guid still keys on the natural key
-  (see *Favorites RSS feed*). Note `INSERT ... ON CONFLICT` still consumes one
+  (see *Favorites RSS feed*). The guarded upsert also preserves
+  `placements.first_seen_at` (migration 010, default `now()` on insert only),
+  which the RSS feed relies on to show just the placements that arrived after a
+  dancer was starred. Note `INSERT ... ON CONFLICT` still consumes one
   `IDENTITY` value per incoming row even on conflict, so the id sequence keeps
   advancing at about the same rate — a pre-existing concern, addressable by
   moving `placements.id` to `BIGINT` if INTEGER exhaustion ever looms.
