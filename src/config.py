@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # Sleep between full passes over the registry.
     importer_pass_delay_seconds: float = 0.0
     # Consecutive missing ids that signal the end of the registry for a pass.
-    importer_none_slide_limit: int = 200
+    importer_none_slide_limit: int = 10
 
     # Prioritised refresh: a dancer who placed within this many years is
     # "likely" to have changed and is fetched every pass; everyone else is

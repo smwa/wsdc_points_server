@@ -29,17 +29,29 @@ DANCER_API_URL = "https://points.worldsdc.com/lookup2020/find"
 
 
 def fetch_dancer(wsdc_id: int):
-    """Fetch one dancer's raw response from WSDC, or None if missing."""
+    """Fetch one dancer's raw response from WSDC.
+
+    Returns:
+        (data, is_not_found):
+          - (dict/list, False) on success
+          - (None, True) if WSDC authoritatively reported it missing (404 or empty body)
+          - (None, False) on a transient failure (connection error or other non-200 status)
+    """
     try:
         r = requests.post(DANCER_API_URL, data={"num": str(wsdc_id)}, timeout=30)
     except requests.RequestException as e:
         log.warning("Request error for dancer %s: %s", wsdc_id, e)
-        return None
+        return None, False
+    if r.status_code == 404:
+        log.warning("Dancer %s not found (404)", wsdc_id)
+        return None, True
     if r.status_code != 200:
         log.warning("Bad status code %s for dancer %s", r.status_code, wsdc_id)
-        return None
+        return None, False
     data = r.json()
-    return data or None
+    if not data:
+        return None, True
+    return data, False
 
 
 def load_raw_dancers(path: str) -> dict:

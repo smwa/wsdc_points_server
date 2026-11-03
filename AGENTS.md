@@ -565,9 +565,11 @@ Run it with `python -m src.importer` (forever loop) or
    dancers (`source.fetch_dancer` = `POST .../lookup2020/find`) until
    `importer_none_slide_limit` (default 200) consecutive misses. Found dancers
    are flattened (`transform.transform_dancer`) and upserted
-   (`run.import_dancer`, which stamps `dancers.last_imported_at`). Ids **not** in
-   the database below the max are never re-probed, so empty ids aren't retried
-   every pass.
+   (`run.import_dancer`, which stamps `dancers.last_imported_at`). If an existing
+   candidate dancer returns an authoritative 404/missing response,
+   `run.touch_dancer_last_imported` stamps their `last_imported_at` so they won't
+   be retried on every single pass. Ids **not** in the database below the max are
+   never probed during the new-id scan.
 3. Insert one `data_refreshes` row so the home page's "last updated" advances.
 
 The forever loop then repeats. `importer_request_delay_seconds` (default 30.0)

@@ -14,6 +14,15 @@ async def max_dancer_id(conn) -> int:
     return await conn.fetchval("SELECT COALESCE(MAX(id), 0) FROM dancers")
 
 
+async def touch_dancer_last_imported(conn, wsdc_id: int) -> None:
+    """Stamp last_imported_at = now() for an existing dancer when WSDC returns 404/missing,
+    so candidate_ids won't re-probe them on every single pass."""
+    await conn.execute(
+        "UPDATE dancers SET last_imported_at = now() WHERE id = $1",
+        wsdc_id,
+    )
+
+
 async def candidate_ids(conn, recent_years: int, unlikely_days: int) -> list[int]:
     """Dancer ids to (re-)fetch this pass, likely cohort first.
 

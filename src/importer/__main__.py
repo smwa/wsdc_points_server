@@ -64,15 +64,18 @@ async def _iter_dancers(pool):
     log.info("Refreshing %s existing dancers, then scanning above id %s", len(ids), max_id)
 
     for wsdc_id in ids:
-        datum = await asyncio.to_thread(source.fetch_dancer, wsdc_id)
+        datum, is_not_found = await asyncio.to_thread(source.fetch_dancer, wsdc_id)
         if datum is not None:
             yield datum
+        elif is_not_found:
+            async with pool.acquire() as conn:
+                await run.touch_dancer_last_imported(conn, wsdc_id)
         await _maybe_delay()
 
     wsdc_id = max_id + 1
     none_slide = 0
     while none_slide < settings.importer_none_slide_limit:
-        datum = await asyncio.to_thread(source.fetch_dancer, wsdc_id)
+        datum, _ = await asyncio.to_thread(source.fetch_dancer, wsdc_id)
         if datum is None:
             none_slide += 1
         else:
