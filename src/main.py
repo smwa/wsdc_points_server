@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 # Resources are all same-origin except two cross-origin cases: the JS distance
-# sort fetching geojs.io, and self-hosted Matomo analytics at mat.mechstack.dev
+# filter fetching geojs.io, and self-hosted Matomo analytics at mat.mechstack.dev
 # (loads matomo.js and beacons tracking to matomo.php). External links (maps,
 # play store) are navigations and don't need allow-listing.
 CONTENT_SECURITY_POLICY = (

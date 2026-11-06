@@ -208,6 +208,27 @@ input[type="search"]:focus {
   border-color: var(--brand-light);
 }
 
+.distance-filter {
+  margin: 1rem 0;
+}
+.distance-filter label {
+  display: block;
+}
+.distance-filter output {
+  font-weight: 600;
+}
+.distance-filter input[type="range"] {
+  display: block;
+  width: 100%;
+  margin: 0.25rem 0;
+  accent-color: var(--brand-light);
+  cursor: pointer;
+}
+.distance-filter p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .card-list {
   list-style: none;
   margin: 0;
@@ -221,11 +242,13 @@ input[type="search"]:focus {
 .card:hover {
   background: var(--surface);
 }
+.card.too-far {
+  display: none;
+}
 .card h3 { margin: 0 0 0.2rem; }
 
 /* ── Buttons ───────────────────────────────────────────────────────────── */
-button,
-#sort-distance {
+button {
   font: inherit;
   color: #fff;
   background: var(--brand);
@@ -234,8 +257,7 @@ button,
   padding: 0.5rem 0.95rem;
   cursor: pointer;
 }
-button:hover,
-#sort-distance:hover {
+button:hover {
   background: var(--brand-light);
 }
 button:disabled {

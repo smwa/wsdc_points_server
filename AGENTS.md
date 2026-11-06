@@ -37,8 +37,8 @@ sandbox, so expect to debug runtime/SQL issues on the first real run):
   (`base.html`) links the top-level pages.
 - PWA: web manifest + icons (ported from the legacy site) and a `theme-color`,
   wired in `base.html`. The Google Play button is hidden inside the Android app.
-- `/upcoming-events` has client-side search + "sort by distance" (progressive
-  enhancement) and a subscribable iCalendar feed at `/wsdc_events.ics`.
+- `/upcoming-events` has client-side search + a distance-filter slider
+  (progressive enhancement) and a subscribable iCalendar feed at `/wsdc_events.ics`.
 - **Data importer** (`src/importer/`): fetches each dancer from WSDC and upserts
   it in its own transaction, looping forever. See *Data importer* below.
 - Container/deploy: `Dockerfile`, `docker-compose.yml` (db + app + importer),
@@ -139,7 +139,7 @@ server/
         ├── js/
         │   ├── list-search.js            # tokenized, debounced search over #item-list (events, upcoming)
         │   ├── dancers-list.js           # /dancers: embedded JSON, chunked render + search
-        │   ├── distance-sort.js          # "sort by distance" via Geolocation + IP fallback (upcoming)
+        │   ├── distance-filter.js        # distance slider + per-event distances via Geolocation + IP fallback (upcoming)
         │   ├── star.js                   # star/unstar via fetch (no nav → no extra history entry)
         │   └── matomo.js                 # self-hosted Matomo analytics loader (mat.mechstack.dev, site 7)
         └── icons/
@@ -478,10 +478,20 @@ ISO, `Decimal` → float, `UUID` → str).
   - `static/js/list-search.js` — tokenized, debounced (200 ms) search over any
     `#item-list` of `[data-search]` cards driven by `#list-search`. Per-word and
     within-word: "el smith" matches "michael w. smith". Used by events/upcoming.
-  - `static/js/distance-sort.js` — upcoming-events "sort by distance". Tries the
-    Geolocation API, then falls back to a coarse IP lookup
-    (`https://get.geojs.io/v1/ip/geo.json`) when the browser provider is
-    unavailable/denied (common on Firefox/Linux) — the one outbound request.
+  - `static/js/distance-filter.js` — upcoming-events distance filter: a
+    logarithmic slider (50–15,000 mi, snapped to 50) under the search box. The list
+    stays sorted by date. If `navigator.permissions` reports geolocation as already
+    granted, it locates on load, lists each event's distance, and starts at 500 mi;
+    otherwise it starts at 15,000 mi, which is the "off" position, and first requests
+    location when the slider is moved. Filtered-out cards get the `.too-far` class
+    (search owns the `hidden` attribute, so the two filters combine); events without
+    coordinates are hidden whenever the filter is on. A failed Geolocation lookup
+    (unavailable or denied, common on Firefox/Linux) falls back to a coarse IP lookup
+    (`https://get.geojs.io/v1/ip/geo.json`) — the one outbound request, made only
+    with access already granted or after a slider move. The last location is kept in
+    `localStorage` for 7 days and applied on load, because Firefox/Safari can report a
+    one-time "Allow" as `prompt` on the next visit; a `denied` state clears it, and an
+    IP estimate isn't saved if the visitor refused the prompt.
   - `static/js/dancers-list.js` — `/dancers` only. The page **doesn't** render
     rows server-side: the handler embeds the whole list (`[id, name]` pairs,
     ordered by id desc) as JSON in a `<script type="application/json">`, and the
@@ -531,7 +541,7 @@ ISO, `Decimal` → float, `UUID` → str).
   production (HTTPS) so the session cookie is marked `Secure` — that flag also
   switches on the `Strict-Transport-Security` header.
 - **Hardening.** `main.py` adds a middleware setting `Content-Security-Policy`
-  (same-origin + `https://get.geojs.io` for the distance sort and
+  (same-origin + `https://get.geojs.io` for the distance filter and
   `https://mat.mechstack.dev` for Matomo analytics),
   `X-Content-Type-Options`, `Referrer-Policy`, and `Cache-Control` for `/static`
   (30 d for images, 1 h for css/js). Unhandled and HTTP errors render the themed
@@ -665,7 +675,7 @@ a Division/Leader/Follower table, a per-date "pointed"-count link (dancers who
 earned points, not total entrants), and a pointed-over-time chart; other dates
 listed plainly);
 `/event-competitors/{occurrence_id}` (placements grouped by division then role,
-place/points/dancer link); `/upcoming-events` (search, distance sort,
+place/points/dancer link); `/upcoming-events` (search, distance filter,
 Google-Maps location links, `/wsdc_events.ics` calendar feed);
 `/dancers-over-time` (cumulative dancers with ≥1 point per month since 2000,
 via the shared `charts.line_chart` + `_line_chart.html` — no JS/Chart.js).
